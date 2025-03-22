@@ -4,6 +4,9 @@ const fs = require('fs');
 // 📅 Plan-Datum hier anpassen
 const PLAN_DATUM = new Date('2026-03-24'); // <-- Hier kannst du das Datum setzen
 
+// Beispiel-Daten
+const data = [{"Stunde":1,"Lehrkraft":"Kirchhöfer","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"","entfall":false,"vertretung":false,"originalLehrkraft":null},{"Stunde":2,"Lehrkraft":"Kirchhöfer","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"","entfall":false,"vertretung":false,"originalLehrkraft":null},{"Stunde":3,"Lehrkraft":"Kirchhöfer","Fach":"Englisch","Raum":"C 1.14","Zusatzinfo":", ","entfall":false,"vertretung":true,"originalLehrkraft":"Du Chesne"},{"Stunde":4,"Lehrkraft":"Kirchhöfer","Fach":"Englisch","Raum":"C 1.14","Zusatzinfo":", ","entfall":false,"vertretung":true,"originalLehrkraft":"Du Chesne"},{"Stunde":5,"Lehrkraft":"Bollmann","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"Arbeitsauftrag bei Ilias, Arbeitsauftrag bei Ilias","entfall":false,"vertretung":false,"originalLehrkraft":null},{"Stunde":6,"Lehrkraft":"Bollmann","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"Arbeitsauftrag bei Ilias, Arbeitsauftrag bei Ilias","entfall":false,"vertretung":false,"originalLehrkraft":null},{"Stunde":7,"Lehrkraft":"Bollmann","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"","entfall":true,"vertretung":false,"originalLehrkraft":null},{"Stunde":8,"Lehrkraft":"Bollmann","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"","entfall":true,"vertretung":false,"originalLehrkraft":null}];
+
 // 🔧 Layout-Settings
 const width = 900;
 const marginX = 40;
@@ -15,9 +18,6 @@ const cardRadius = 12;
 const headerHeight = 70;
 const numRows = 8;
 const height = marginY * 2 + headerHeight + (cardHeight + cardGap) * numRows + footerHeight;
-
-// Beispiel-Daten
-const data = [{"Stunde":1,"Lehrkraft":"Kirchhöfer","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"","entfall":false,"vertretung":false,"originalLehrkraft":null},{"Stunde":2,"Lehrkraft":"Kirchhöfer","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"","entfall":false,"vertretung":false,"originalLehrkraft":null},{"Stunde":3,"Lehrkraft":"Kirchhöfer","Fach":"Englisch","Raum":"C 1.14","Zusatzinfo":", ","entfall":false,"vertretung":true,"originalLehrkraft":"Du Chesne"},{"Stunde":4,"Lehrkraft":"Kirchhöfer","Fach":"Englisch","Raum":"C 1.14","Zusatzinfo":", ","entfall":false,"vertretung":true,"originalLehrkraft":"Du Chesne"},{"Stunde":5,"Lehrkraft":"Bollmann","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"Arbeitsauftrag bei Ilias, Arbeitsauftrag bei Ilias","entfall":false,"vertretung":false,"originalLehrkraft":null},{"Stunde":6,"Lehrkraft":"Bollmann","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"Arbeitsauftrag bei Ilias, Arbeitsauftrag bei Ilias","entfall":false,"vertretung":false,"originalLehrkraft":null},{"Stunde":7,"Lehrkraft":"Bollmann","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"","entfall":true,"vertretung":false,"originalLehrkraft":null},{"Stunde":8,"Lehrkraft":"Bollmann","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"","entfall":true,"vertretung":false,"originalLehrkraft":null}];
 
 // 🎨 Farben
 const STATUS = {
@@ -66,70 +66,67 @@ const stand = now.toLocaleDateString('de-DE', {
 });
 const zeit = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 ctx.fillStyle = '#666';
-ctx.fillText(`Stand: ${stand} – ${zeit} Uhr`, width - 320, marginY - 10);
+const textWidth = ctx.measureText(`Stand: ${stand} – ${zeit} Uhr`).width + marginX;
+ctx.fillText(`Stand: ${stand} – ${zeit} Uhr`, width - textWidth, marginY - 10);
 
-// 📦 Cards
-const startY = marginY + headerHeight;
-const baselineOffset = cardHeight / 2 + 7;
-
-data.forEach((entry, i) => {
-    const y = startY + i * (cardHeight + cardGap);
+// Helper-Funktion, um eine Karte für einen Eintrag zu zeichnen
+function drawCard(entry, index) {
+    const startY = marginY + headerHeight;
+    const y = startY + index * (cardHeight + cardGap);
     const x = marginX;
     const w = width - 2 * marginX;
-
-    const status = entry.entfall
-        ? STATUS.entfall
-        : entry.vertretung
-        ? STATUS.vertretung
-        : STATUS.normal;
-
+    const status = entry.entfall ? STATUS.entfall : entry.vertretung ? STATUS.vertretung : STATUS.normal;
     // Hintergrundkarte
     ctx.fillStyle = status.bg;
     ctx.beginPath();
     ctx.roundRect(x, y, w, cardHeight, cardRadius);
     ctx.fill();
-
     // Text
+    const baselineOffset = cardHeight / 2 + 7;
     ctx.fillStyle = status.text;
-    const textY = y + baselineOffset;
     ctx.font = boldFont;
-    ctx.fillText(`${entry.Stunde}.`, x + 16, textY);
-
+    ctx.fillText(`${entry.Stunde}.`, x + 16, y + baselineOffset);
     ctx.font = '20px "Segoe UI", sans-serif';
-    ctx.fillText(entry.Fach, x + 70, textY);
-    ctx.fillText(entry.Lehrkraft, x + 460, textY);
-    ctx.fillText(entry.Raum, x + 700, textY);
+    ctx.fillText(entry.Fach, x + 70, y + baselineOffset);
+    ctx.fillText(entry.Lehrkraft, x + 460, y + baselineOffset);
+    ctx.fillText(entry.Raum, x + 700, y + baselineOffset);
+}
+
+// Helper-Funktion, um die Legende zu zeichnen
+function drawLegend() {
+    const legendY = height - footerHeight + 25;
+    ctx.fillStyle = '#f4f4f4';
+    ctx.beginPath();
+    ctx.roundRect(marginX, legendY - 15, width - 2 * marginX, 50, cardRadius);
+    ctx.fill();
+  
+    const legenden = [
+        { color: STATUS.normal.bg, label: 'Regulärer Unterricht' },
+        { color: STATUS.vertretung.bg, label: 'Vertretung' },
+        { color: STATUS.entfall.bg, label: 'Entfall' }
+    ];
+    ctx.font = smallFont;
+    legenden.forEach((item, i) => {
+        const boxX = marginX + i * 250 + width / 6;
+        const boxY = legendY;
+        // Box
+        ctx.fillStyle = item.color;
+        ctx.fillRect(boxX, boxY, 20, 20);
+        ctx.strokeStyle = '#999';
+        ctx.strokeRect(boxX, boxY, 20, 20);
+        // Text
+        ctx.fillStyle = '#333';
+        ctx.fillText(item.label, boxX + 25, boxY + 16);
+    });
+}
+
+// 📦 Cards
+data.forEach((entry, i) => {
+    drawCard(entry, i);
 });
 
 // 📚 Legende (zentriert)
-const legendY = height - footerHeight + 25;
-ctx.fillStyle = '#f4f4f4';
-ctx.fillRect(marginX, legendY - 15, width - 2 * marginX, 50);
-
-const legenden = [
-    { color: STATUS.normal.bg, label: 'Regulärer Unterricht' },
-    { color: STATUS.vertretung.bg, label: 'Vertretung' },
-    { color: STATUS.entfall.bg, label: 'Entfall' }
-];
-
-ctx.font = smallFont;
-
-legenden.forEach((item, i) => {
-    const boxX = marginX + i * 250 + 100;
-    const boxY = legendY;
-    const text = item.label;
-    // Box
-    ctx.fillStyle = item.color;
-    ctx.fillRect(boxX, boxY, 20, 20);
-    ctx.strokeStyle = '#999';
-    ctx.strokeRect(boxX, boxY, 20, 20);
-
-    // Text zentriert daneben
-    ctx.fillStyle = '#333';
-    const textX = boxX + 25
-    const textY = boxY + 16;
-    ctx.fillText(text, textX, textY);
-});
+drawLegend();
 
 // 💾 Export
 const buffer = canvas.toBuffer('image/png');
