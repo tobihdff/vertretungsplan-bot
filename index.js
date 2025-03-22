@@ -76,11 +76,13 @@ function drawCard(entry, index) {
     const x = marginX;
     const w = width - 2 * marginX;
     const status = entry.entfall ? STATUS.entfall : entry.vertretung ? STATUS.vertretung : STATUS.normal;
+    
     // Hintergrundkarte
     ctx.fillStyle = status.bg;
     ctx.beginPath();
     ctx.roundRect(x, y, w, cardHeight, cardRadius);
     ctx.fill();
+
     // Text
     const baselineOffset = cardHeight / 2 + 7;
     ctx.fillStyle = status.text;
@@ -109,11 +111,13 @@ function drawLegend() {
     legenden.forEach((item, i) => {
         const boxX = marginX + i * 250 + width / 6;
         const boxY = legendY;
+        
         // Box
         ctx.fillStyle = item.color;
         ctx.fillRect(boxX, boxY, 20, 20);
         ctx.strokeStyle = '#999';
         ctx.strokeRect(boxX, boxY, 20, 20);
+        
         // Text
         ctx.fillStyle = '#333';
         ctx.fillText(item.label, boxX + 25, boxY + 16);
