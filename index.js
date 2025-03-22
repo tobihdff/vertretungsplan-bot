@@ -1,13 +1,13 @@
 const { createCanvas } = require('canvas');
 const fs = require('fs');
 
-// 📅 Plan-Datum hier anpassen
-const PLAN_DATUM = new Date('2026-03-24'); // <-- Hier kannst du das Datum setzen
+// Datum hier anpassen
+const PLAN_DATUM = new Date('2026-03-24');
 
-// Beispiel-Daten
+// Daten
 const data = [{"Stunde":1,"Lehrkraft":"Kirchhöfer","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"","entfall":false,"vertretung":false,"originalLehrkraft":null},{"Stunde":2,"Lehrkraft":"Kirchhöfer","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"","entfall":false,"vertretung":false,"originalLehrkraft":null},{"Stunde":3,"Lehrkraft":"Kirchhöfer","Fach":"Englisch","Raum":"C 1.14","Zusatzinfo":", ","entfall":false,"vertretung":true,"originalLehrkraft":"Du Chesne"},{"Stunde":4,"Lehrkraft":"Kirchhöfer","Fach":"Englisch","Raum":"C 1.14","Zusatzinfo":", ","entfall":false,"vertretung":true,"originalLehrkraft":"Du Chesne"},{"Stunde":5,"Lehrkraft":"Bollmann","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"Arbeitsauftrag bei Ilias, Arbeitsauftrag bei Ilias","entfall":false,"vertretung":false,"originalLehrkraft":null},{"Stunde":6,"Lehrkraft":"Bollmann","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"Arbeitsauftrag bei Ilias, Arbeitsauftrag bei Ilias","entfall":false,"vertretung":false,"originalLehrkraft":null},{"Stunde":7,"Lehrkraft":"Bollmann","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"","entfall":true,"vertretung":false,"originalLehrkraft":null},{"Stunde":8,"Lehrkraft":"Bollmann","Fach":"Elektrotechnik / Informatik","Raum":"C 1.14","Zusatzinfo":"","entfall":true,"vertretung":false,"originalLehrkraft":null}];
 
-// 🔧 Layout-Settings
+// Settings
 const width = 900;
 const marginX = 40;
 const marginY = 60;
@@ -19,14 +19,14 @@ const headerHeight = 70;
 const numRows = 8;
 const height = marginY * 2 + headerHeight + (cardHeight + cardGap) * numRows + footerHeight;
 
-// 🎨 Farben
+// Farben
 const STATUS = {
     normal: { bg: '#dff4e1', text: '#155724' },
     vertretung: { bg: '#fff4cc', text: '#856404' },
     entfall: { bg: '#f8d7da', text: '#721c24' }
 };
   
-// 🎨 Canvas & Kontext
+// Canvas & Kontext
 const canvas = createCanvas(width, height);
 const ctx = canvas.getContext('2d');
 
@@ -40,12 +40,12 @@ const boldFont = 'bold 20px "Segoe UI", sans-serif';
 ctx.fillStyle = '#fff';
 ctx.fillRect(0, 0, width, height);
 
-// 🧾 Titel
+// Titel
 ctx.fillStyle = '#222';
 ctx.font = titleFont;
 ctx.fillText('Vertretungsplan', marginX, marginY - 20);
 
-// 📅 Plan-Datum anzeigen
+// Datum anzeigen
 const planDatumStr = PLAN_DATUM.toLocaleDateString('de-DE', {
     weekday: 'long',
     day: '2-digit',
@@ -56,7 +56,7 @@ ctx.font = smallFont;
 ctx.fillStyle = '#444';
 ctx.fillText(`für ${planDatumStr}`, marginX, marginY + 10);
 
-// 🕓 Stand-Zeitpunkt (rechts oben)
+// Stand-Zeitpunkt (rechts oben)
 const now = new Date();
 const stand = now.toLocaleDateString('de-DE', {
     weekday: 'long',
@@ -120,15 +120,15 @@ function drawLegend() {
     });
 }
 
-// 📦 Cards
+// Cards
 data.forEach((entry, i) => {
     drawCard(entry, i);
 });
 
-// 📚 Legende (zentriert)
+// Legende
 drawLegend();
 
-// 💾 Export
+// Export
 const buffer = canvas.toBuffer('image/png');
 fs.writeFileSync('vertretungsplan.png', buffer);
 console.log('✅ Finales Bild gespeichert: vertretungsplan.png');
