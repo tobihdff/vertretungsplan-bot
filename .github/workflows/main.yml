@@ -4,9 +4,23 @@ on:
   push:
     branches: [main]
 
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment Environment"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - development
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    # Optional: Environment für Schutzregeln/Freigabe
+    environment: ${{ github.event.inputs.environment || 'production' }}
 
     steps:
       - name: Checkout code
@@ -49,6 +63,6 @@ jobs:
 
           ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             cd /root/vertretungsplan-bot
-            screen -S vertretungsplan-bot -X quit || true
-            screen -dmS vertretungsplan-bot node index.js
+            screen -S vertretungsplan -X quit || true
+            screen -dmS vertretungsplan node index.js
           EOF
