@@ -2,7 +2,7 @@
 
 Ein benutzerfreundlicher Discord-Bot, der automatisch Vertretungspläne für Schulen teilt und bei Änderungen benachrichtigt.
 
-![Vertretungsplan-Beispiel](https://raw.githubusercontent.com/tobih/vertretungsplan-bot/main/docs/preview.png)
+![Vertretungsplan-Beispiel](https://github.com/tobihdff/vertretungsplan-bot/blob/main/docs/preview.png?raw=true)
 
 ## ✨ Funktionen
 
