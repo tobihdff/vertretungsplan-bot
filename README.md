@@ -8,7 +8,7 @@ Ein benutzerfreundlicher Discord-Bot, der automatisch Vertretungspläne für Sch
 
 - 🖼️ Generiert und postet ein übersichtliches Bild des Vertretungsplans
 - 🔄 Aktualisiert das Bild regelmäßig (standardmäßig alle 20 Minuten)
-- 🔍 Überprüft auf Änderungen im Vertretungsplan (standardmäßig alle 10 Minuten)
+- 🔍 Überprüft auf Änderungen im Vertretungsplan (standardmäßig alle 20 Minuten)
 - 📢 Sendet Benachrichtigungen bei Änderungen mit detaillierten Informationen
 - 🔔 Benachrichtigt Nutzer mit einer bestimmten Rolle bei Updates
 - 🧹 Hält den Discord-Channel aufgeräumt durch Löschen alter Nachrichten
@@ -57,7 +57,7 @@ Ein benutzerfreundlicher Discord-Bot, der automatisch Vertretungspläne für Sch
    API_URL_PROD=url-zur-vertretungsplan-api
    api_key=dein-api-schlüssel
    UPDATE_INTERVAL_MINUTES=20
-   CHECK_INTERVAL_MINUTES=10
+   CHECK_INTERVAL_MINUTES=20
    ```
 
 ### Schritt 4: Kanal-IDs finden
