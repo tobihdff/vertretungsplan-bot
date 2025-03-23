@@ -1,0 +1,54 @@
+name: Deploy Discord Bot
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Create .env file
+        run: |
+          echo "API_KEY=${{ secrets.ENV_API_KEY }}" >> .env
+          echo "API_URL_DEV=${{ secrets.ENV_API_URL_DEV }}" >> .env
+          echo "API_URL_PROD=${{ secrets.ENV_API_URL_PROD }}" >> .env
+          echo "NODE_ENV=${{ secrets.ENV_NODE_ENV }}" >> .env
+          echo "DISCORD_TOKEN=${{ secrets.ENV_DISCORD_TOKEN }}" >> .env
+          echo "PLAN_CHANNEL_ID=${{ secrets.ENV_PLAN_CHANNEL_ID }}" >> .env
+          echo "NOTIFICATION_CHANNEL_ID=${{ secrets.ENV_NOTIFICATION_CHANNEL_ID }}" >> .env
+          echo "AUTHORIZED_USERS=${{ secrets.ENV_AUTHORIZED_USERS }}" >> .env
+          echo "UPDATE_INTERVAL_MINUTES=${{ secrets.ENV_UPDATE_INTERVAL_MINUTES }}" >> .env
+          echo "CHECK_INTERVAL_MINUTES=${{ secrets.ENV_CHECK_INTERVAL_MINUTES }}" >> .env
+          echo "UPDATE_ROLE_ID=${{ secrets.ENV_UPDATE_ROLE_ID }}" >> .env
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to VPS
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            cd /root
+            if [ ! -d vertretungsplan-bot ]; then
+              git clone https://github.com/${{ github.repository }}.git vertretungsplan-bot
+            fi
+            cd vertretungsplan-bot
+            git pull
+            npm install
+          EOF
+
+          scp -P ${{ secrets.SSH_PORT }} .env ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/root/vertretungsplan-bot/.env
+
+          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            cd /root/vertretungsplan-bot
+            screen -S vertretungsplan-bot -X quit || true
+            screen -dmS vertretungsplan-bot node index.js
+          EOF
