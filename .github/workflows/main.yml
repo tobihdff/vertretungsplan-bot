@@ -52,7 +52,7 @@ jobs:
           ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             cd /root
             if [ ! -d vertretungsplan-bot ]; then
-              git clone https://github.com/${{ github.repository }}.git vertretungsplan-bot
+              git clone git@github.com:${{ github.repository }}.git vertretungsplan-bot
             fi
             cd vertretungsplan-bot
             git pull
