@@ -39,6 +39,8 @@ jobs:
           echo "UPDATE_INTERVAL_MINUTES=${{ secrets.ENV_UPDATE_INTERVAL_MINUTES }}" >> .env
           echo "CHECK_INTERVAL_MINUTES=${{ secrets.ENV_CHECK_INTERVAL_MINUTES }}" >> .env
           echo "UPDATE_ROLE_ID=${{ secrets.ENV_UPDATE_ROLE_ID }}" >> .env
+          echo "API_RETRY_INTERVAL_MINUTES=${{ secrets.ENV_API_RETRY_INTERVAL_MINUTES }}" >> .env
+          echo "DEBUG_MODE=${{ secrets.ENV_DEBUG_MODE }}" >> .env
 
       - name: Set up SSH
         run: |
