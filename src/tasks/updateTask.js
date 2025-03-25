@@ -1,5 +1,5 @@
 const { AttachmentBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { PLAN_CHANNEL_ID, NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEBUG } = require('../config');
+const { PLAN_CHANNEL_ID, NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEBUG, BASE_URL } = require('../config');
 const { getTargetDate, formatDate, formatReadableDate } = require('../utils/dateUtils');
 const { hasDataChanged, findChanges } = require('../utils/dataUtils');
 const { fetchData } = require('../services/apiService');
@@ -249,20 +249,59 @@ async function updatePlan(client) {
         
         // Debug-Informationen hinzufügen, wenn der Debug-Modus aktiv ist
         if (DEBUG) {
-            messageContent += '\n\n**🔍 DEBUG: Rohdaten**\n```json\n' + 
-                              JSON.stringify(data, null, 2).substring(0, 1900) + 
-                              (JSON.stringify(data, null, 2).length > 1900 ? '...' : '') + 
-                              '\n```';
+            // Debug-Informationen als Embed erstellen, damit die Nachricht besser strukturiert ist
+            const debugEmbed = new EmbedBuilder()
+                .setColor('#808080') // Graue Farbe für Debug-Informationen
+                .setTitle('🔍 Debug-Informationen')
+                .setDescription('Rohdaten vom API-Aufruf:')
+                .addFields(
+                    { name: 'API URL', value: `\`${BASE_URL}?date=${dateParam}\`` },
+                    { name: 'Anzahl Einträge', value: `${data.length}` },
+                    { name: 'Zeitstempel', value: new Date().toISOString() }
+                );
+            
+            // Rohdaten in Chunks aufteilen, da Discord Felder auf 1024 Zeichen begrenzt
+            const rawDataStr = JSON.stringify(data, null, 2);
+            const chunkSize = 1000; // Etwas weniger als 1024 für Formatierung
+            
+            for (let i = 0; i < rawDataStr.length; i += chunkSize) {
+                const chunk = rawDataStr.substring(i, i + chunkSize);
+                debugEmbed.addFields({
+                    name: i === 0 ? 'Rohdaten' : '... Fortsetzung',
+                    value: '```json\n' + chunk + '\n```'
+                });
+                
+                // Maximal 5 Chunks, um Embed-Limits nicht zu überschreiten
+                if (i >= chunkSize * 4) {
+                    debugEmbed.addFields({
+                        name: 'Hinweis',
+                        value: 'Die Daten sind zu groß und wurden abgeschnitten.'
+                    });
+                    break;
+                }
+            }
+            
+            // Sende das Bild mit dem Debug-Embed
+            const newMessage = await planChannel.send({
+                content: messageContent,
+                files: [attachment],
+                embeds: [debugEmbed],
+                components: components
+            });
+            
+            // Neue Nachricht-ID speichern
+            cache.lastMessageId = newMessage.id;
+        } else {
+            // Normale Nachricht ohne Debug-Informationen
+            const newMessage = await planChannel.send({
+                content: messageContent,
+                files: [attachment],
+                components: components
+            });
+            
+            // Neue Nachricht-ID speichern
+            cache.lastMessageId = newMessage.id;
         }
-        
-        const newMessage = await planChannel.send({
-            content: messageContent,
-            files: [attachment],
-            components: components
-        });
-        
-        // Neue Nachricht-ID speichern
-        cache.lastMessageId = newMessage.id;
         
         console.log(`Vertretungsplan aktualisiert: ${new Date().toLocaleString()}`);
     } catch (err) {

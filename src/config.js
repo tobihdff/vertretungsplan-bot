@@ -16,7 +16,7 @@ const NOTIFICATION_CHANNEL_ID = process.env.NOTIFICATION_CHANNEL_ID;
 const UPDATE_ROLE_ID = process.env.UPDATE_ROLE_ID;
 
 // Debug-Modus aus Umgebungsvariable lesen
-const DEBUG = process.env.DEBUG === 'true';
+const DEBUG = process.env.DEBUG_MODE == 'true';
 
 // Intervalle konfigurierbar in Minuten, umgerechnet in Millisekunden
 const INTERVALS = {
@@ -68,7 +68,8 @@ const cache = {
     lastCheck: null, // Zeitpunkt der letzten Überprüfung
     initialized: false, // Flag für die Erstinitialisierung
     apiAvailable: true, // Flag für API-Erreichbarkeit
-    statusChanged: false // Flag ob der Status geändert wurde
+    statusChanged: false, // Flag ob der Status geändert wurde
+    apiFailureCount: 0 // Zähler für fehlgeschlagene API-Anfragen
 };
 
 // Bot-Status Konfiguration
