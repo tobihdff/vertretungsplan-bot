@@ -2,7 +2,7 @@ const { registerCommands } = require('./commands');
 const { isAuthorized, testPlanGeneration, testUpdateDetection, testNotification } = require('./tests');
 const { updatePlan, checkPlanChanges } = require('../tasks/updateTask');
 const { AUTHORIZED_USERS, INTERVALS, PLAN_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEBUG } = require('../config');
-const { updateBotStatus, startApiMonitoring } = require('../utils/statusUtils');
+const { updateBotStatus, startApiMonitoring, setInitialBotStatus } = require('../utils/statusUtils');
 const { debugLog } = require('../utils/debugUtils');
 
 /**
