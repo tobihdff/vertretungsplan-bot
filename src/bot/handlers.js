@@ -154,6 +154,20 @@ function setupHandlers(client) {
         if (interaction.isCommand()) {
             debugLog(`Slash-Command empfangen: ${interaction.commandName} von ${interaction.user.tag} (${interaction.user.id})`);
             
+            const { commandName } = interaction;
+            
+            // Überprüfe zunächst, ob es sich um einen Test-Befehl handelt
+            const isTestCommand = ['test-plan', 'test-update', 'test-notification'].includes(commandName);
+            
+            // Wenn es ein Test-Befehl ist und Debug-Modus deaktiviert ist
+            if (isTestCommand && !DEBUG) {
+                debugLog(`Test-Befehl ${commandName} wurde verweigert - Debug-Modus ist deaktiviert`);
+                return interaction.reply({ 
+                    content: '❌ Test-Befehle sind nur im Debug-Modus verfügbar. Der Debug-Modus ist derzeit deaktiviert.', 
+                    ephemeral: true 
+                });
+            }
+            
             // Prüfe Berechtigung für normale Befehle
             if (interaction.commandName !== 'setup-role' && !isAuthorized(interaction.user.id, AUTHORIZED_USERS)) {
                 debugLog(`Benutzer ${interaction.user.tag} ist nicht berechtigt, den Befehl ${interaction.commandName} auszuführen`);
@@ -162,8 +176,6 @@ function setupHandlers(client) {
                     ephemeral: true 
                 });
             }
-            
-            const { commandName } = interaction;
             
             switch (commandName) {
                 case 'test-plan':

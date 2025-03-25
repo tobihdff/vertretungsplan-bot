@@ -1,5 +1,5 @@
 const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
-const { NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID } = require('../config');
+const { NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, DEBUG } = require('../config');
 const { getTargetDate, formatDate, parseGermanDate, formatReadableDate } = require('../utils/dateUtils');
 const { hasDataChanged, findChanges } = require('../utils/dataUtils');
 const { fetchData } = require('../services/apiService');
@@ -10,7 +10,8 @@ const { sendTempPingNotification } = require('../tasks/updateTask');
  * Prüft, ob ein Benutzer autorisiert ist, Tests auszuführen
  */
 function isAuthorized(userId, authorizedUsers) {
-    return authorizedUsers.includes(userId);
+    // Debug-Modus muss aktiviert sein und der Benutzer muss autorisiert sein
+    return DEBUG && authorizedUsers.includes(userId);
 }
 
 /**
