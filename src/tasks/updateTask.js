@@ -203,6 +203,49 @@ async function checkPlanChanges(client) {
 }
 
 /**
+ * Löscht ältere Vertretungsplan-Nachrichten im Channel
+ */
+async function cleanupOldMessages(channel) {
+    try {
+        debugLog('Starte Bereinigung älterer Vertretungsplan-Nachrichten');
+        
+        // Hole die letzten 50 Nachrichten (wäre ausreichend für mehrere Wochen)
+        const messages = await channel.messages.fetch({ limit: 50 });
+        
+        // Filtere Nachrichten, die vom Bot stammen und Vertretungspläne enthalten
+        const oldPlanMessages = messages.filter(msg => 
+            msg.author.id === channel.client.user.id && 
+            msg.content.includes('**Vertretungsplan für') &&
+            // Vermeidet das Löschen der Message, die gerade neu gesendet wird
+            !cache.messages[Object.keys(cache.messages)[0]] || msg.id !== cache.messages[Object.keys(cache.messages)[0]]
+        );
+        
+        // Nur Nachrichten anzeigen, die gelöscht werden
+        if (oldPlanMessages.size > 0) {
+            debugLog(`${oldPlanMessages.size} ältere Vertretungsplan-Nachrichten gefunden`);
+            
+            // Lösche die Nachrichten einzeln, da sie möglicherweise älter als 14 Tage sind
+            for (const [id, message] of oldPlanMessages) {
+                try {
+                    await message.delete();
+                    debugLog(`Alte Nachricht gelöscht: ${id}`);
+                } catch (err) {
+                    debugLog(`Fehler beim Löschen einer alten Nachricht: ${err.message}`);
+                    // Wir ignorieren Fehler beim Löschen alter Nachrichten
+                }
+            }
+            
+            console.log(`${oldPlanMessages.size} ältere Vertretungsplan-Nachrichten wurden gelöscht`);
+        } else {
+            debugLog('Keine älteren Vertretungsplan-Nachrichten zum Löschen gefunden');
+        }
+    } catch (err) {
+        console.error('Fehler beim Bereinigen älterer Nachrichten:', err);
+        debugLog(`Fehler bei der Bereinigung älterer Nachrichten: ${err.message}`);
+    }
+}
+
+/**
  * Aktualisiert den Vertretungsplan vollständig (Bild und ggf. Benachrichtigung)
  */
 async function updatePlan(client) {
@@ -250,7 +293,7 @@ async function updatePlan(client) {
         const imageBuffer = await createPlanImage(data, targetDate);
         const attachment = new AttachmentBuilder(imageBuffer, { name: 'vertretungsplan.png' });
         
-        // Alte Nachricht löschen, falls vorhanden
+        // Alte Nachricht für das aktuelle Datum löschen, falls vorhanden
         const lastMessageId = cache.messages[dateParam];
         if (lastMessageId) {
             try {
@@ -264,6 +307,9 @@ async function updatePlan(client) {
                 debugLog(`Fehler beim Löschen der alten Nachricht: ${err.message}`);
             }
         }
+        
+        // Alle älteren Vertretungsplan-Nachrichten löschen
+        await cleanupOldMessages(planChannel);
         
         // Buttons für die Rolle erstellen (falls konfiguriert)
         let components = [];
@@ -356,5 +402,6 @@ async function updatePlan(client) {
 module.exports = {
     updatePlan,
     checkPlanChanges,
-    sendTempPingNotification
+    sendTempPingNotification,
+    cleanupOldMessages  // Neue Funktion exportieren
 };
