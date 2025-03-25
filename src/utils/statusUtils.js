@@ -8,6 +8,12 @@ const { debugLog } = require('./debugUtils');
  */
 async function updateBotStatus(client) {
     try {
+        // Sicherstellen, dass der Client bereit ist
+        if (!client || !client.user) {
+            debugLog('Client oder client.user noch nicht verfügbar - Status-Update übersprungen');
+            return;
+        }
+        
         const result = await checkApiAvailability();
         const { available, statusChanged, errorCount, confirmationCount } = result;
         
@@ -15,10 +21,11 @@ async function updateBotStatus(client) {
         
         // Nur Status ändern, wenn die API-Prüfung eine Statusänderung festgestellt hat
         // oder wenn die Konsistenz zwischen cache und Statusprüfung nicht mehr gegeben ist
-        if (statusChanged || available !== cache.apiAvailable) {
+        // oder wenn forceStatusUpdate true ist (für initiale Statusaktualisierung)
+        if (statusChanged || available !== cache.apiAvailable || !cache.initialStatusSet) {
             if (available) {
                 // API ist erreichbar - Online-Status setzen
-                debugLog('Setze Bot-Status auf ONLINE');
+                debugLog('Setze Bot-Status auf ONLINE mit Aktivität "Watching Vertretungsplan"');
                 await client.user.setPresence({
                     activities: [{
                         name: BOT_STATUS.ACTIVITY.name,
@@ -38,6 +45,8 @@ async function updateBotStatus(client) {
             }
             
             cache.statusChanged = true;
+            // Markiere, dass der initiale Status gesetzt wurde
+            cache.initialStatusSet = true;
         } else {
             cache.statusChanged = false;
         }
@@ -46,7 +55,47 @@ async function updateBotStatus(client) {
         cache.apiAvailable = available;
     } catch (error) {
         console.error('Fehler beim Aktualisieren des Bot-Status:', error);
+        debugLog(`Fehler beim Status-Update: ${error.message}`);
     }
+}
+
+/**
+ * Setzt den initialen Bot-Status beim Start
+ * Diese Funktion sollte im ready-Event des Bots aufgerufen werden
+ */
+async function setInitialBotStatus(client) {
+    debugLog('Setze initialen Bot-Status');
+    
+    // Sicherstellen, dass der Client bereit ist
+    if (!client || !client.user) {
+        console.error('Client nicht bereit - Initialer Status konnte nicht gesetzt werden');
+        return;
+    }
+    
+    // temporären Status setzen, während die API geprüft wird
+    try {
+        debugLog('Setze temporären "Online"-Status während API-Prüfung');
+        await client.user.setPresence({
+            activities: [{
+                name: 'Verbinde...',
+                type: ActivityType.Watching
+            }],
+            status: 'online'
+        });
+    } catch (err) {
+        console.error('Fehler beim Setzen des temporären Status:', err);
+    }
+    
+    // Kurze Verzögerung, um sicherzustellen, dass der Bot vollständig verbunden ist
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Markiere den Status als noch nicht initial gesetzt
+    cache.initialStatusSet = false;
+    
+    // API-Status prüfen und entsprechenden Status setzen
+    await updateBotStatus(client);
+    
+    debugLog('Initialer Bot-Status gesetzt');
 }
 
 /**
@@ -102,5 +151,6 @@ function startApiMonitoring(client, retryInterval) {
 
 module.exports = {
     updateBotStatus,
-    startApiMonitoring
+    startApiMonitoring,
+    setInitialBotStatus  // Neue Funktion exportieren
 };

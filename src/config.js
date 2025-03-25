@@ -63,24 +63,23 @@ const IMAGE_CONFIG = {
 
 // Cache für Bot-Daten
 const cache = {
-    messages: {}, // Nach Datum indexierte Nachrichten-IDs
-    data: {}, // Nach Datum indexierte Plan-Daten
-    lastCheck: null, // Zeitpunkt der letzten Überprüfung
-    initialized: false, // Flag für die Erstinitialisierung
-    apiAvailable: true, // Flag für API-Erreichbarkeit
-    statusChanged: false, // Flag ob der Status geändert wurde
-    apiFailureCount: 0 // Zähler für fehlgeschlagene API-Anfragen
+    apiAvailable: true,         // Standardmäßig gehen wir davon aus, dass die API erreichbar ist
+    statusChanged: false,        // Flag für Statusänderungen
+    data: {},                   // Speichert die letzten Daten pro Datum
+    messages: {},               // Speichert die Nachrichten-IDs pro Datum
+    lastCheck: null,            // Wann wurde zuletzt auf Änderungen geprüft
+    initialStatusSet: false     // Flag ob der initiale Status gesetzt wurde
 };
 
 // Bot-Status Konfiguration
 const BOT_STATUS = {
-    ACTIVITY: {
-        name: 'Vertretungsplan',
-        type: 'WATCHING' // Discord.js ActivityType.Watching
-    },
     PRESENCE: {
         ONLINE: 'online',
         DND: 'dnd' // Do Not Disturb
+    },
+    ACTIVITY: {
+        name: 'Vertretungsplan',
+        type: 'WATCHING' // Discord.js ActivityType.Watching
     }
 };
 
