@@ -1,6 +1,6 @@
 const { ActivityType } = require('discord.js');
 const { BOT_STATUS, cache, DEBUG } = require('../config');
-const { checkApiAvailability } = require('../services/apiService');
+const { checkApiAvailability, ERROR_THRESHOLD, CONFIRMATION_COUNT } = require('../services/apiService');
 const { debugLog } = require('./debugUtils');
 
 /**
@@ -8,12 +8,14 @@ const { debugLog } = require('./debugUtils');
  */
 async function updateBotStatus(client) {
     try {
-        const { available, statusChanged } = await checkApiAvailability();
+        const result = await checkApiAvailability();
+        const { available, statusChanged, errorCount, confirmationCount } = result;
         
-        debugLog(`Aktualisiere Bot-Status: API verfügbar=${available}, Status geändert=${statusChanged}`);
+        debugLog(`Aktualisiere Bot-Status: API verfügbar=${available}, Status geändert=${statusChanged}, Fehlerzähler=${errorCount}/${ERROR_THRESHOLD}, Bestätigungen=${confirmationCount}/${CONFIRMATION_COUNT}`);
         
-        // Bei jeder Statusänderung aktualisieren (nicht nur wenn cache.statusChanged gesetzt ist)
-        if (statusChanged || available !== Boolean(cache.apiAvailable)) {
+        // Nur Status ändern, wenn die API-Prüfung eine Statusänderung festgestellt hat
+        // oder wenn die Konsistenz zwischen cache und Statusprüfung nicht mehr gegeben ist
+        if (statusChanged || available !== cache.apiAvailable) {
             if (available) {
                 // API ist erreichbar - Online-Status setzen
                 debugLog('Setze Bot-Status auf ONLINE');
@@ -57,7 +59,8 @@ function startApiMonitoring(client, retryInterval) {
     async function checkAndUpdateStatus() {
         try {
             debugLog('API-Monitoring: Überprüfe API-Status');
-            const { available } = await checkApiAvailability();
+            const result = await checkApiAvailability();
+            const { available, errorCount } = result;
             
             if (available) {
                 // Wenn API wieder erreichbar ist, beende das Monitoring und setze den Status zurück
@@ -71,17 +74,23 @@ function startApiMonitoring(client, retryInterval) {
                 // Status aktualisieren, auch wenn kein Monitoring lief
                 if (!cache.apiAvailable) {
                     debugLog('API vorher nicht erreichbar, jetzt verfügbar - Erzwinge Status-Update');
-                    cache.apiAvailable = true;
+                    // Wir setzen cache.apiAvailable nicht direkt, sondern warten auf Bestätigung
+                    // durch das normale Statusupdate, um Statusflackern zu vermeiden
                     cache.statusChanged = true;
                     await updateBotStatus(client);
                 }
-            } else if (!monitoringInterval) {
-                // Wenn API nicht erreichbar ist und noch kein Monitoring läuft, starte es
-                debugLog(`API-Monitoring: Starte Monitoring alle ${retryInterval / 60000} Minuten`);
+            } else if (!monitoringInterval && errorCount >= ERROR_THRESHOLD) {
+                // Nur wenn Fehlerschwelle überschritten ist, Monitoring starten
+                debugLog(`API-Monitoring: Starte Monitoring alle ${retryInterval / 60000} Minuten (Fehlerzähler: ${errorCount}/${ERROR_THRESHOLD})`);
                 console.log(`API ist nicht erreichbar - Starte Monitoring alle ${retryInterval / 60000} Minuten`);
-                cache.apiAvailable = false;
+                // cache.apiAvailable wird durch updateBotStatus gesetzt
                 cache.statusChanged = true;
                 monitoringInterval = setInterval(() => checkAndUpdateStatus(), retryInterval);
+            } else if (errorCount < ERROR_THRESHOLD && cache.apiAvailable === false) {
+                // Wenn Fehler unter Schwellenwert, aber wir als nicht verfügbar markiert sind,
+                // API-Status prüfen (durch updateBotStatus)
+                debugLog(`API-Fehler unter Schwellenwert (${errorCount}/${ERROR_THRESHOLD}) aber als nicht verfügbar markiert - Prüfe Status`);
+                await updateBotStatus(client);
             }
         } catch (error) {
             console.error('Fehler im API-Monitoring:', error);

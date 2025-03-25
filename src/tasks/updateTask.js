@@ -2,7 +2,7 @@ const { AttachmentBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Button
 const { PLAN_CHANNEL_ID, NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEBUG, BASE_URL } = require('../config');
 const { getTargetDate, formatDate, formatReadableDate } = require('../utils/dateUtils');
 const { hasDataChanged, findChanges } = require('../utils/dataUtils');
-const { fetchData } = require('../services/apiService');
+const { fetchData, ERROR_THRESHOLD } = require('../services/apiService');
 const { createPlanImage } = require('../services/imageService');
 const { updateBotStatus } = require('../utils/statusUtils');
 const { debugLog } = require('../utils/debugUtils');
@@ -43,7 +43,7 @@ async function checkPlanChanges(client) {
         // Bot-Status aktualisieren vor API-Abruf
         await updateBotStatus(client);
         
-        // Wenn API nicht verfügbar ist, abbrechen
+        // Wenn API nicht verfügbar ist, abbrechen - jetzt mit Berücksichtigung der Fehlerschwelle
         if (!cache.apiAvailable) {
             debugLog('API ist nicht erreichbar - Überspringe Änderungsprüfung');
             console.log('API ist nicht erreichbar - Überspringe Änderungsprüfung');
@@ -55,24 +55,34 @@ async function checkPlanChanges(client) {
         const dateParam = formatDate(targetDate);
         debugLog(`Ermittelter Zieldatum für Änderungsprüfung: ${dateParam}`);
         
-        // Daten abrufen
+        // Daten abrufen mit erweiterten Retry-Mechanismen
         let data;
-        try {
-            data = await fetchData(dateParam);
-            // API konnte erfolgreich abgerufen werden - setze Status explizit
-            if (!cache.apiAvailable) {
-                cache.apiAvailable = true;
-                cache.statusChanged = true;
-                debugLog('API jetzt verfügbar - Setze Status auf verfügbar');
-                await updateBotStatus(client);
+        let retryCount = 0;
+        const maxRetries = 2; // Maximal 2 Versuche bei kurzzeitigen Fehlern
+        
+        while (retryCount <= maxRetries) {
+            try {
+                data = await fetchData(dateParam);
+                
+                // Erfolgreicher Abruf, Schleife verlassen
+                break;
+            } catch (err) {
+                retryCount++;
+                debugLog(`Versuch ${retryCount}/${maxRetries+1} fehlgeschlagen: ${err.message}`);
+                
+                if (retryCount <= maxRetries) {
+                    // Kurze Pause vor dem nächsten Versuch
+                    debugLog(`Warte 2 Sekunden vor erneutem Versuch...`);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                } else {
+                    // Alle Versuche fehlgeschlagen
+                    debugLog(`Alle ${maxRetries+1} Versuche fehlgeschlagen, breche ab`);
+                    
+                    // Status aktualisieren - fetchData erhöht bereits den Fehlerzähler
+                    await updateBotStatus(client);
+                    return;
+                }
             }
-        } catch (err) {
-            debugLog(`Fehler beim Abrufen der Daten: ${err.message}`);
-            // Bei Fehler den API-Status auf nicht verfügbar setzen
-            cache.apiAvailable = false;
-            cache.statusChanged = true;
-            await updateBotStatus(client);
-            return;
         }
         
         // Wenn die API ein leeres Array zurückgibt, keine Aktualisierung durchführen
@@ -272,7 +282,7 @@ async function updatePlan(client) {
         // Bot-Status aktualisieren vor API-Abruf
         await updateBotStatus(client);
         
-        // Wenn API nicht verfügbar ist, abbrechen
+        // Wenn API nicht verfügbar ist, abbrechen - jetzt mit Berücksichtigung der Fehlerschwelle
         if (!cache.apiAvailable) {
             debugLog('API ist nicht erreichbar - Überspringe Planaktualisierung');
             console.log('API ist nicht erreichbar - Überspringe Planaktualisierung');
@@ -284,24 +294,34 @@ async function updatePlan(client) {
         const dateParam = formatDate(targetDate);
         debugLog(`Ermittelter Zieldatum für Planaktualisierung: ${dateParam}`);
         
-        // Daten abrufen
+        // Daten abrufen mit Retry-Mechanismus
         let data;
-        try {
-            data = await fetchData(dateParam);
-            // API konnte erfolgreich abgerufen werden - setze Status explizit
-            if (!cache.apiAvailable) {
-                cache.apiAvailable = true;
-                cache.statusChanged = true;
-                debugLog('API jetzt verfügbar - Setze Status auf verfügbar');
-                await updateBotStatus(client);
+        let retryCount = 0;
+        const maxRetries = 2; // Maximal 2 Versuche bei kurzzeitigen Fehlern
+        
+        while (retryCount <= maxRetries) {
+            try {
+                data = await fetchData(dateParam);
+                
+                // Erfolgreicher Abruf, Schleife verlassen
+                break;
+            } catch (err) {
+                retryCount++;
+                debugLog(`Versuch ${retryCount}/${maxRetries+1} fehlgeschlagen: ${err.message}`);
+                
+                if (retryCount <= maxRetries) {
+                    // Kurze Pause vor dem nächsten Versuch
+                    debugLog(`Warte 2 Sekunden vor erneutem Versuch...`);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                } else {
+                    // Alle Versuche fehlgeschlagen
+                    debugLog(`Alle ${maxRetries+1} Versuche fehlgeschlagen, breche ab`);
+                    
+                    // Status aktualisieren - fetchData erhöht bereits den Fehlerzähler
+                    await updateBotStatus(client);
+                    return;
+                }
             }
-        } catch (err) {
-            debugLog(`Fehler beim Abrufen der Daten: ${err.message}`);
-            // Bei Fehler den API-Status auf nicht verfügbar setzen
-            cache.apiAvailable = false;
-            cache.statusChanged = true;
-            await updateBotStatus(client);
-            return;
         }
         
         // Wenn die API ein leeres Array zurückgibt, keine Aktualisierung durchführen
