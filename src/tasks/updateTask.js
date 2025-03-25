@@ -75,16 +75,17 @@ async function checkPlanChanges(client) {
         
         // Überprüfen, ob sich die Daten geändert haben
         debugLog('Prüfe auf Änderungen in den Daten');
-        const dataChanged = hasDataChanged(cache.lastData, data);
+        const lastData = cache.data[dateParam];
+        const dataChanged = hasDataChanged(lastData, data);
         
         // Wenn sich die Daten geändert haben und es vorherige Daten gibt
-        if (dataChanged && cache.lastData) {
+        if (dataChanged && lastData) {
             debugLog('Änderungen in den Daten erkannt');
             const targetDateStr = formatReadableDate(targetDate);
             
             // Spezifische Änderungen identifizieren
             debugLog('Identifiziere spezifische Änderungen');
-            const { newSubstitutions, newCancellations } = findChanges(cache.lastData, data);
+            const { newSubstitutions, newCancellations } = findChanges(lastData, data);
             
             debugLog(`Gefundene Änderungen: ${newSubstitutions.length} neue Vertretungen, ${newCancellations.length} neue Entfälle`);
             
@@ -147,7 +148,7 @@ async function checkPlanChanges(client) {
                 debugLog('Füge Debug-Informationen zum Embed hinzu');
                 updateEmbed.addFields({ 
                     name: '🔍 DEBUG: Rohdaten (alte Daten)', 
-                    value: '```json\n' + JSON.stringify(cache.lastData, null, 2).substring(0, 1000) + '...\n```' 
+                    value: '```json\n' + JSON.stringify(lastData, null, 2).substring(0, 1000) + '...\n```' 
                 });
                 
                 updateEmbed.addFields({ 
@@ -178,17 +179,17 @@ async function checkPlanChanges(client) {
             
             // Speichere die neuen Daten
             debugLog('Speichere neue Daten im Cache');
-            cache.lastData = data;
+            cache.data[dateParam] = data;
             
             console.log(`Änderungen im Vertretungsplan erkannt: ${new Date().toLocaleString()}`);
         } else if (dataChanged) {
             // Initialzustand - speichern ohne zu benachrichtigen
             debugLog('Initialzustand: Speichere Daten ohne Benachrichtigung');
-            cache.lastData = data;
-            console.log(`Initiale Daten gespeichert: ${new Date().toLocaleString()}`);
+            cache.data[dateParam] = data;
+            console.log(`Initiale Daten gespeichert für ${dateParam}: ${new Date().toLocaleString()}`);
         } else {
             debugLog('Keine Änderungen im Vertretungsplan erkannt');
-            console.log(`Keine Änderungen im Vertretungsplan: ${new Date().toLocaleString()}`);
+            console.log(`Keine Änderungen im Vertretungsplan für ${dateParam}: ${new Date().toLocaleString()}`);
         }
         
         // Letzten Prüfzeitpunkt speichern
@@ -250,10 +251,11 @@ async function updatePlan(client) {
         const attachment = new AttachmentBuilder(imageBuffer, { name: 'vertretungsplan.png' });
         
         // Alte Nachricht löschen, falls vorhanden
-        if (cache.lastMessageId) {
+        const lastMessageId = cache.messages[dateParam];
+        if (lastMessageId) {
             try {
-                debugLog(`Lösche alte Nachricht mit ID: ${cache.lastMessageId}`);
-                const oldMessage = await planChannel.messages.fetch(cache.lastMessageId);
+                debugLog(`Lösche alte Nachricht mit ID: ${lastMessageId}`);
+                const oldMessage = await planChannel.messages.fetch(lastMessageId);
                 if (oldMessage) {
                     await oldMessage.delete();
                 }
@@ -331,7 +333,7 @@ async function updatePlan(client) {
             });
             
             // Neue Nachricht-ID speichern
-            cache.lastMessageId = newMessage.id;
+            cache.messages[dateParam] = newMessage.id;
         } else {
             // Normale Nachricht ohne Debug-Informationen
             const newMessage = await planChannel.send({
@@ -341,10 +343,10 @@ async function updatePlan(client) {
             });
             
             // Neue Nachricht-ID speichern
-            cache.lastMessageId = newMessage.id;
+            cache.messages[dateParam] = newMessage.id;
         }
         
-        console.log(`Vertretungsplan aktualisiert: ${new Date().toLocaleString()}`);
+        console.log(`Vertretungsplan aktualisiert für ${dateParam}: ${new Date().toLocaleString()}`);
     } catch (err) {
         console.error('Fehler beim Aktualisieren des Vertretungsplans:', err);
         debugLog(`Fehler bei der Planaktualisierung: ${err.message}`);

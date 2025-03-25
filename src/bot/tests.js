@@ -186,7 +186,7 @@ async function testNotification(interaction, client) {
         }
         
         // Identifiziere die Änderungen
-        const { newSubstitutions, newCancellations } = findChanges(currentData, modifiedData);
+        const { newSubstitutions, newCancellations } = findChanges(cache.data[dateParam] || currentData, modifiedData);
         
         // Texte für die Änderungen erstellen
         let substitutionText = '';

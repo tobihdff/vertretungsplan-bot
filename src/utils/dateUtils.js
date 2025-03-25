@@ -5,7 +5,7 @@ function getTargetDate() {
     const now = new Date();
     const day = now.getDay();
     // Dienstag = 2, Donnerstag = 4
-    if ((day === 2 || day === 4) && now.getHours() < 12) {
+    if ((day === 2 || day === 4) && now.getHours() < 13) {
         return now;
     }
     const DAY_TUESDAY = 2, DAY_THURSDAY = 4;

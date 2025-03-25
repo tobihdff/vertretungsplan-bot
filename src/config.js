@@ -63,8 +63,8 @@ const IMAGE_CONFIG = {
 
 // Cache für Bot-Daten
 const cache = {
-    lastMessageId: null,
-    lastData: null,
+    messages: {}, // Nach Datum indexierte Nachrichten-IDs
+    data: {}, // Nach Datum indexierte Plan-Daten
     lastCheck: null, // Zeitpunkt der letzten Überprüfung
     initialized: false, // Flag für die Erstinitialisierung
     apiAvailable: true, // Flag für API-Erreichbarkeit
