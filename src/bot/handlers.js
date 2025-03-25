@@ -2,6 +2,7 @@ const { registerCommands } = require('./commands');
 const { isAuthorized, testPlanGeneration, testUpdateDetection, testNotification } = require('./tests');
 const { updatePlan, checkPlanChanges } = require('../tasks/updateTask');
 const { AUTHORIZED_USERS, INTERVALS, PLAN_CHANNEL_ID, UPDATE_ROLE_ID, cache } = require('../config');
+const { updateBotStatus, startApiMonitoring } = require('../utils/statusUtils');
 
 /**
  * Löscht alle Nachrichten in einem Channel, wenn die Berechtigungen ausreichen
@@ -82,6 +83,12 @@ function setupHandlers(client) {
         // Registriere Slash-Commands
         await registerCommands(client);
         
+        // Initialen Bot-Status setzen
+        await updateBotStatus(client);
+        
+        // API-Monitoring Funktion erstellen
+        const monitorApiStatus = startApiMonitoring(client, INTERVALS.API_RETRY_INTERVAL);
+        
         // Beim ersten Start alle Nachrichten im Plan-Channel löschen
         if (!cache.initialized) {
             const planChannel = client.channels.cache.get(PLAN_CHANNEL_ID);
@@ -104,9 +111,19 @@ function setupHandlers(client) {
         console.log(`Update-Intervall: ${INTERVALS.UPDATE_INTERVAL / 60000} Minuten`);
         console.log(`Prüf-Intervall: ${INTERVALS.CHECK_INTERVAL / 60000} Minuten`);
         
-        // Separate Intervalle für Vollaktualisierung und Änderungsprüfung
+        // Separate Intervalle für Vollaktualisierung, Änderungsprüfung und Status-Überwachung
         setInterval(() => updatePlan(client), INTERVALS.UPDATE_INTERVAL);
         setInterval(() => checkPlanChanges(client), INTERVALS.CHECK_INTERVAL);
+        
+        // Statusprüfung vor jeder API-Anfrage
+        setInterval(() => {
+            updateBotStatus(client).then(() => {
+                // Bei Fehlern das Monitoring starten
+                if (!cache.apiAvailable) {
+                    monitorApiStatus();
+                }
+            });
+        }, INTERVALS.CHECK_INTERVAL);
     });
     
     // Handler für Interaktionen (Commands und Buttons)

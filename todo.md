@@ -6,8 +6,9 @@
   - API-Endpunkt für Klassenbucheinträge anbinden
   - Daten formatieren und übersichtlich darstellen
   - Berechtigungen für den Zugriff überprüfen
-- [ ] Watching-Aktivität für Vertretungsplan implementieren
+- [x] Watching-Aktivität für Vertretungsplan implementieren
   - Bot-Status auf "Schaut Vertretungsplan" setzen
   - Aktivitätsstatus in regelmäßigen Abständen aktualisieren
   - Bei Änderungen des Vertretungsplans visuelle Hinweise anzeigen
   - Tracking der letzten Überprüfung implementieren
+- [x] Aktualisierung überspringen, wenn API leeres Array zurückgibt

@@ -1,9 +1,10 @@
 const { AttachmentBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { PLAN_CHANNEL_ID, NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, cache } = require('../config');
+const { PLAN_CHANNEL_ID, NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEBUG } = require('../config');
 const { getTargetDate, formatDate, formatReadableDate } = require('../utils/dateUtils');
 const { hasDataChanged, findChanges } = require('../utils/dataUtils');
 const { fetchData } = require('../services/apiService');
 const { createPlanImage } = require('../services/imageService');
+const { updateBotStatus } = require('../utils/statusUtils');
 
 /**
  * Sendet eine Ping-Benachrichtigung, die nach 5 Sekunden gelöscht wird
@@ -32,12 +33,27 @@ async function sendTempPingNotification(channel, roleId, message) {
  */
 async function checkPlanChanges(client) {
     try {
+        // Bot-Status aktualisieren vor API-Abruf
+        await updateBotStatus(client);
+        
+        // Wenn API nicht verfügbar ist, abbrechen
+        if (!cache.apiAvailable) {
+            console.log('API ist nicht erreichbar - Überspringe Änderungsprüfung');
+            return;
+        }
+        
         // Nächsten Schultag ermitteln
         const targetDate = getTargetDate();
         const dateParam = formatDate(targetDate);
         
         // Daten abrufen
         const data = await fetchData(dateParam);
+        
+        // Wenn die API ein leeres Array zurückgibt, keine Aktualisierung durchführen
+        if (!data || data.length === 0) {
+            console.log(`Keine Daten für ${dateParam} verfügbar - Überspringe Aktualisierung`);
+            return;
+        }
         
         // Benachrichtigungs-Channel holen
         const notificationChannel = client.channels.cache.get(NOTIFICATION_CHANNEL_ID);
@@ -108,6 +124,19 @@ async function checkPlanChanges(client) {
                     value: 'Es wurden allgemeine Änderungen erkannt. Details sind im Vertretungsplan zu finden.' 
                 });
             }
+            
+            // Debug-Informationen hinzufügen, wenn der Debug-Modus aktiv ist
+            if (DEBUG) {
+                updateEmbed.addFields({ 
+                    name: '🔍 DEBUG: Rohdaten (alte Daten)', 
+                    value: '```json\n' + JSON.stringify(cache.lastData, null, 2).substring(0, 1000) + '...\n```' 
+                });
+                
+                updateEmbed.addFields({ 
+                    name: '🔍 DEBUG: Rohdaten (neue Daten)', 
+                    value: '```json\n' + JSON.stringify(data, null, 2).substring(0, 1000) + '...\n```' 
+                });
+            }
                 
             // Embed senden ohne Rollenerwähnung
             await notificationChannel.send({ embeds: [updateEmbed] });
@@ -146,12 +175,27 @@ async function checkPlanChanges(client) {
  */
 async function updatePlan(client) {
     try {
+        // Bot-Status aktualisieren vor API-Abruf
+        await updateBotStatus(client);
+        
+        // Wenn API nicht verfügbar ist, abbrechen
+        if (!cache.apiAvailable) {
+            console.log('API ist nicht erreichbar - Überspringe Planaktualisierung');
+            return;
+        }
+        
         // Nächsten Schultag ermitteln
         const targetDate = getTargetDate();
         const dateParam = formatDate(targetDate);
         
         // Daten abrufen
         const data = await fetchData(dateParam);
+        
+        // Wenn die API ein leeres Array zurückgibt, keine Aktualisierung durchführen
+        if (!data || data.length === 0) {
+            console.log(`Keine Daten für ${dateParam} verfügbar - Überspringe Aktualisierung`);
+            return;
+        }
         
         // Plan-Channel holen
         const planChannel = client.channels.cache.get(PLAN_CHANNEL_ID);
@@ -201,8 +245,18 @@ async function updatePlan(client) {
         // Neue Nachricht senden
         const targetDateStr = formatReadableDate(targetDate);
         
+        let messageContent = `**Vertretungsplan für ${targetDateStr}**`;
+        
+        // Debug-Informationen hinzufügen, wenn der Debug-Modus aktiv ist
+        if (DEBUG) {
+            messageContent += '\n\n**🔍 DEBUG: Rohdaten**\n```json\n' + 
+                              JSON.stringify(data, null, 2).substring(0, 1900) + 
+                              (JSON.stringify(data, null, 2).length > 1900 ? '...' : '') + 
+                              '\n```';
+        }
+        
         const newMessage = await planChannel.send({
-            content: `**Vertretungsplan für ${targetDateStr}**`,
+            content: messageContent,
             files: [attachment],
             components: components
         });

@@ -15,13 +15,19 @@ const PLAN_CHANNEL_ID = process.env.PLAN_CHANNEL_ID;
 const NOTIFICATION_CHANNEL_ID = process.env.NOTIFICATION_CHANNEL_ID;
 const UPDATE_ROLE_ID = process.env.UPDATE_ROLE_ID;
 
+// Debug-Modus aus Umgebungsvariable lesen
+const DEBUG = process.env.DEBUG === 'true';
+
 // Intervalle konfigurierbar in Minuten, umgerechnet in Millisekunden
 const INTERVALS = {
     // Intervall für reguläre Vertretungsplan-Updates 
     UPDATE_INTERVAL: parseInt(process.env.UPDATE_INTERVAL_MINUTES || '20') * 60 * 1000,
     
     // Intervall für die Überprüfung auf Änderungen
-    CHECK_INTERVAL: parseInt(process.env.CHECK_INTERVAL_MINUTES || '10') * 60 * 1000
+    CHECK_INTERVAL: parseInt(process.env.CHECK_INTERVAL_MINUTES || '10') * 60 * 1000,
+    
+    // Intervall für die Überprüfung der API-Erreichbarkeit im Fehlerfall (1 Minute)
+    API_RETRY_INTERVAL: parseInt(process.env.API_RETRY_INTERVAL_MINUTES || '1') * 60 * 1000
 };
 
 // Liste der autorisierten Benutzer-IDs für Tests
@@ -60,7 +66,21 @@ const cache = {
     lastMessageId: null,
     lastData: null,
     lastCheck: null, // Zeitpunkt der letzten Überprüfung
-    initialized: false // Flag für die Erstinitialisierung
+    initialized: false, // Flag für die Erstinitialisierung
+    apiAvailable: true, // Flag für API-Erreichbarkeit
+    statusChanged: false // Flag ob der Status geändert wurde
+};
+
+// Bot-Status Konfiguration
+const BOT_STATUS = {
+    ACTIVITY: {
+        name: 'Vertretungsplan',
+        type: 'WATCHING' // Discord.js ActivityType.Watching
+    },
+    PRESENCE: {
+        ONLINE: 'online',
+        DND: 'dnd' // Do Not Disturb
+    }
 };
 
 module.exports = {
@@ -73,5 +93,7 @@ module.exports = {
     BASE_URL,
     API_KEY,
     IMAGE_CONFIG,
-    cache
+    cache,
+    DEBUG,
+    BOT_STATUS
 };
