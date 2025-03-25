@@ -56,7 +56,24 @@ async function checkPlanChanges(client) {
         debugLog(`Ermittelter Zieldatum für Änderungsprüfung: ${dateParam}`);
         
         // Daten abrufen
-        const data = await fetchData(dateParam);
+        let data;
+        try {
+            data = await fetchData(dateParam);
+            // API konnte erfolgreich abgerufen werden - setze Status explizit
+            if (!cache.apiAvailable) {
+                cache.apiAvailable = true;
+                cache.statusChanged = true;
+                debugLog('API jetzt verfügbar - Setze Status auf verfügbar');
+                await updateBotStatus(client);
+            }
+        } catch (err) {
+            debugLog(`Fehler beim Abrufen der Daten: ${err.message}`);
+            // Bei Fehler den API-Status auf nicht verfügbar setzen
+            cache.apiAvailable = false;
+            cache.statusChanged = true;
+            await updateBotStatus(client);
+            return;
+        }
         
         // Wenn die API ein leeres Array zurückgibt, keine Aktualisierung durchführen
         if (!data || data.length === 0) {
@@ -268,7 +285,24 @@ async function updatePlan(client) {
         debugLog(`Ermittelter Zieldatum für Planaktualisierung: ${dateParam}`);
         
         // Daten abrufen
-        const data = await fetchData(dateParam);
+        let data;
+        try {
+            data = await fetchData(dateParam);
+            // API konnte erfolgreich abgerufen werden - setze Status explizit
+            if (!cache.apiAvailable) {
+                cache.apiAvailable = true;
+                cache.statusChanged = true;
+                debugLog('API jetzt verfügbar - Setze Status auf verfügbar');
+                await updateBotStatus(client);
+            }
+        } catch (err) {
+            debugLog(`Fehler beim Abrufen der Daten: ${err.message}`);
+            // Bei Fehler den API-Status auf nicht verfügbar setzen
+            cache.apiAvailable = false;
+            cache.statusChanged = true;
+            await updateBotStatus(client);
+            return;
+        }
         
         // Wenn die API ein leeres Array zurückgibt, keine Aktualisierung durchführen
         if (!data || data.length === 0) {

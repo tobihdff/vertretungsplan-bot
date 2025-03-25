@@ -54,7 +54,6 @@ async function checkApiAvailability() {
         const apiUrl = `${BASE_URL}?date=${dateParam}`;
         
         debugLog(`Überprüfe API-Erreichbarkeit: ${apiUrl}`);
-        console.log(`Überprüfe API-Erreichbarkeit: ${apiUrl}`);
         
         // Wir verwenden denselben Request-Typ wie bei fetchData, aber mit einem kurzen Timeout
         const controller = new AbortController();
@@ -75,15 +74,18 @@ async function checkApiAvailability() {
         
         // Nur wenn sich der Status ändert, loggen wir eine Nachricht
         const statusChanged = cache.apiAvailable !== isAvailable;
-        if (isAvailable) {
-            debugLog(`API-Verfügbarkeit: OK - Status ${response.status}`);
-            console.log('✅ API ist erreichbar');
+        if (statusChanged) {
+            if (isAvailable) {
+                debugLog(`API-Verfügbarkeit: OK - Status ${response.status} (Status-Änderung erkannt)`);
+                console.log('✅ API ist wieder erreichbar');
+            } else {
+                debugLog(`API-Verfügbarkeit: Fehler - Status ${response.status} ${response.statusText} (Status-Änderung erkannt)`);
+                console.log(`❌ API ist nicht mehr erreichbar - Status: ${response.status} ${response.statusText}`);
+            }
         } else {
-            debugLog(`API-Verfügbarkeit: Fehler - Status ${response.status} ${response.statusText}`);
-            console.log(`❌ API ist nicht erreichbar - Status: ${response.status} ${response.statusText}`);
+            debugLog(`API-Verfügbarkeit: ${isAvailable ? 'OK' : 'Fehler'} - Status ${response.status} (Keine Status-Änderung)`);
         }
         
-        cache.apiAvailable = isAvailable;
         return { available: isAvailable, statusChanged };
     } catch (err) {
         // Spezifischere Fehlerbehandlung
@@ -101,8 +103,13 @@ async function checkApiAvailability() {
         }
         
         const statusChanged = cache.apiAvailable !== false;
-        cache.apiAvailable = false;
-        console.error(`API Availability Check Failed: ${errorMessage}`);
+        
+        if (statusChanged) {
+            console.error(`API nicht mehr erreichbar: ${errorMessage}`);
+        } else {
+            debugLog(`API weiterhin nicht erreichbar: ${errorMessage}`);
+        }
+        
         return { available: false, statusChanged };
     }
 }

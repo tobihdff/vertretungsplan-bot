@@ -12,35 +12,36 @@ async function updateBotStatus(client) {
         
         debugLog(`Aktualisiere Bot-Status: API verfügbar=${available}, Status geändert=${statusChanged}`);
         
-        // Wenn sich der Status nicht geändert hat, nichts tun
-        if (!statusChanged && cache.statusChanged) return;
-        
-        if (available) {
-            // API ist erreichbar - Online-Status setzen
-            debugLog('Setze Bot-Status auf ONLINE');
-            await client.user.setPresence({
-                activities: [{
-                    name: BOT_STATUS.ACTIVITY.name,
-                    type: ActivityType.Watching
-                }],
-                status: BOT_STATUS.PRESENCE.ONLINE
-            });
-            if (statusChanged) {
+        // Bei jeder Statusänderung aktualisieren (nicht nur wenn cache.statusChanged gesetzt ist)
+        if (statusChanged || available !== Boolean(cache.apiAvailable)) {
+            if (available) {
+                // API ist erreichbar - Online-Status setzen
+                debugLog('Setze Bot-Status auf ONLINE');
+                await client.user.setPresence({
+                    activities: [{
+                        name: BOT_STATUS.ACTIVITY.name,
+                        type: ActivityType.Watching
+                    }],
+                    status: BOT_STATUS.PRESENCE.ONLINE
+                });
                 console.log('Bot-Status: Online - Watching Vertretungsplan');
-            }
-        } else {
-            // API ist nicht erreichbar - Do Not Disturb Status setzen
-            debugLog('Setze Bot-Status auf DND (Do Not Disturb)');
-            await client.user.setPresence({
-                activities: [], // Keine Aktivität
-                status: BOT_STATUS.PRESENCE.DND
-            });
-            if (statusChanged) {
+            } else {
+                // API ist nicht erreichbar - Do Not Disturb Status setzen
+                debugLog('Setze Bot-Status auf DND (Do Not Disturb)');
+                await client.user.setPresence({
+                    activities: [], // Keine Aktivität
+                    status: BOT_STATUS.PRESENCE.DND
+                });
                 console.log('Bot-Status: Do Not Disturb - API nicht erreichbar');
             }
+            
+            cache.statusChanged = true;
+        } else {
+            cache.statusChanged = false;
         }
         
-        cache.statusChanged = statusChanged;
+        // Cache-Status immer aktualisieren, um sicherzustellen, dass er mit der Realität übereinstimmt
+        cache.apiAvailable = available;
     } catch (error) {
         console.error('Fehler beim Aktualisieren des Bot-Status:', error);
     }
@@ -67,12 +68,19 @@ function startApiMonitoring(client, retryInterval) {
                     console.log('API-Monitoring beendet - API ist wieder erreichbar');
                 }
                 
-                // Setze Online-Status
-                await updateBotStatus(client);
+                // Status aktualisieren, auch wenn kein Monitoring lief
+                if (!cache.apiAvailable) {
+                    debugLog('API vorher nicht erreichbar, jetzt verfügbar - Erzwinge Status-Update');
+                    cache.apiAvailable = true;
+                    cache.statusChanged = true;
+                    await updateBotStatus(client);
+                }
             } else if (!monitoringInterval) {
                 // Wenn API nicht erreichbar ist und noch kein Monitoring läuft, starte es
                 debugLog(`API-Monitoring: Starte Monitoring alle ${retryInterval / 60000} Minuten`);
                 console.log(`API ist nicht erreichbar - Starte Monitoring alle ${retryInterval / 60000} Minuten`);
+                cache.apiAvailable = false;
+                cache.statusChanged = true;
                 monitoringInterval = setInterval(() => checkAndUpdateStatus(), retryInterval);
             }
         } catch (error) {
