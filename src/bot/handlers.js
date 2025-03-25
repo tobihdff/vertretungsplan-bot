@@ -1,20 +1,23 @@
 const { registerCommands } = require('./commands');
 const { isAuthorized, testPlanGeneration, testUpdateDetection, testNotification } = require('./tests');
 const { updatePlan, checkPlanChanges } = require('../tasks/updateTask');
-const { AUTHORIZED_USERS, INTERVALS, PLAN_CHANNEL_ID, UPDATE_ROLE_ID, cache } = require('../config');
+const { AUTHORIZED_USERS, INTERVALS, PLAN_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEBUG } = require('../config');
 const { updateBotStatus, startApiMonitoring } = require('../utils/statusUtils');
+const { debugLog } = require('../utils/debugUtils');
 
 /**
  * Löscht alle Nachrichten in einem Channel, wenn die Berechtigungen ausreichen
  */
 async function clearChannel(channel) {
     try {
+        debugLog(`Versuche Nachrichten im Channel ${channel.name} (ID: ${channel.id}) zu löschen`);
         console.log(`Versuche Nachrichten im Channel ${channel.name} zu löschen...`);
         
         // Überprüfe zuerst die Berechtigungen
         const permissions = channel.permissionsFor(channel.client.user);
         
         if (!permissions.has('ManageMessages')) {
+            debugLog(`Keine Berechtigung zum Löschen von Nachrichten in ${channel.name}`);
             console.warn(`⚠️ Warnung: Bot hat keine Berechtigung zum Löschen von Nachrichten im Channel ${channel.name}!`);
             console.warn('Bitte gib dem Bot die "Nachrichten verwalten" Berechtigung oder lösche die Nachrichten manuell.');
             return false;
@@ -28,6 +31,7 @@ async function clearChannel(channel) {
             try {
                 // Discord erlaubt nur das Löschen von maximal 100 Nachrichten auf einmal
                 messages = await channel.messages.fetch({ limit: 100 });
+                debugLog(`${messages.size} Nachrichten geladen`);
                 
                 if (messages.size > 0) {
                     // Bulk Delete für Nachrichten, die nicht älter als 14 Tage sind
@@ -38,6 +42,7 @@ async function clearChannel(channel) {
                     });
                     
                     if (recentMessages.size > 0) {
+                        debugLog(`Lösche ${recentMessages.size} neuere Nachrichten`);
                         await channel.bulkDelete(recentMessages, true);  // true = filterOld
                         deleted += recentMessages.size;
                     }
@@ -51,10 +56,12 @@ async function clearChannel(channel) {
                     });
                     
                     if (olderMessages.size > 0) {
+                        debugLog(`${olderMessages.size} Nachrichten sind älter als 14 Tage - können nicht gelöscht werden`);
                         console.log(`${olderMessages.size} Nachrichten sind älter als 14 Tage und können nicht gelöscht werden.`);
                     }
                 }
             } catch (error) {
+                debugLog(`Fehler beim Löschen der Nachrichten: ${error.message}`);
                 console.error('Fehler beim Löschen der Nachrichten:', error);
                 return false;
             }
@@ -64,9 +71,11 @@ async function clearChannel(channel) {
             return msg.createdAt > twoWeeksAgo;
         }));
         
+        debugLog(`${deleted} Nachrichten wurden erfolgreich gelöscht`);
         console.log(`${deleted} Nachrichten wurden gelöscht.`);
         return true;
     } catch (error) {
+        debugLog(`Fehler beim Löschen der Nachrichten: ${error.message}`);
         console.error('Fehler beim Löschen der Nachrichten:', error);
         return false;
     }
@@ -79,37 +88,48 @@ function setupHandlers(client) {
     // Handler für das Ready-Event
     client.once('ready', async () => {
         console.log(`Bot ist online als ${client.user.tag}`);
+        debugLog(`Bot gestartet - Tag: ${client.user.tag}, ID: ${client.user.id}`);
+        debugLog(`Debug-Modus: ${DEBUG ? 'AKTIV' : 'INAKTIV'}`);
         
         // Registriere Slash-Commands
         await registerCommands(client);
+        debugLog('Slash-Commands wurden registriert');
         
         // Initialen Bot-Status setzen
         await updateBotStatus(client);
+        debugLog('Initialer Bot-Status wurde gesetzt');
         
         // API-Monitoring Funktion erstellen
         const monitorApiStatus = startApiMonitoring(client, INTERVALS.API_RETRY_INTERVAL);
+        debugLog(`API-Monitoring konfiguriert mit Intervall: ${INTERVALS.API_RETRY_INTERVAL}ms`);
         
         // Beim ersten Start alle Nachrichten im Plan-Channel löschen
         if (!cache.initialized) {
+            debugLog('Erstinitialisierung - Versuche Nachrichten zu löschen');
             const planChannel = client.channels.cache.get(PLAN_CHANNEL_ID);
             if (planChannel) {
                 const success = await clearChannel(planChannel);
                 if (success) {
+                    debugLog('Bot-Initialisierung abgeschlossen: Nachrichten erfolgreich gelöscht');
                     console.log('Bot-Initialisierung abgeschlossen: Nachrichten gelöscht.');
                 } else {
+                    debugLog('Bot-Initialisierung abgeschlossen: Fehler beim Löschen der Nachrichten');
                     console.warn('Bot-Initialisierung abgeschlossen: Konnte Nachrichten nicht löschen.');
                 }
                 cache.initialized = true;
             } else {
+                debugLog(`Plan-Channel nicht gefunden! Gesuchte ID: ${PLAN_CHANNEL_ID}`);
                 console.error('Plan-Channel nicht gefunden!');
             }
         }
         
         // Initialen Update durchführen
+        debugLog('Führe initialen Vertretungsplan-Update durch');
         await updatePlan(client);
         
         console.log(`Update-Intervall: ${INTERVALS.UPDATE_INTERVAL / 60000} Minuten`);
         console.log(`Prüf-Intervall: ${INTERVALS.CHECK_INTERVAL / 60000} Minuten`);
+        debugLog(`Konfigurations-Details: Update alle ${INTERVALS.UPDATE_INTERVAL / 60000}min, Prüfung alle ${INTERVALS.CHECK_INTERVAL / 60000}min`);
         
         // Separate Intervalle für Vollaktualisierung, Änderungsprüfung und Status-Überwachung
         setInterval(() => updatePlan(client), INTERVALS.UPDATE_INTERVAL);
@@ -117,9 +137,11 @@ function setupHandlers(client) {
         
         // Statusprüfung vor jeder API-Anfrage
         setInterval(() => {
+            debugLog('Führe regelmäßige Status-Aktualisierung durch');
             updateBotStatus(client).then(() => {
                 // Bei Fehlern das Monitoring starten
                 if (!cache.apiAvailable) {
+                    debugLog('API nicht erreichbar - Starte Monitoring');
                     monitorApiStatus();
                 }
             });
@@ -130,8 +152,11 @@ function setupHandlers(client) {
     client.on('interactionCreate', async interaction => {
         // Slash-Command Handler
         if (interaction.isCommand()) {
+            debugLog(`Slash-Command empfangen: ${interaction.commandName} von ${interaction.user.tag} (${interaction.user.id})`);
+            
             // Prüfe Berechtigung für normale Befehle
             if (interaction.commandName !== 'setup-role' && !isAuthorized(interaction.user.id, AUTHORIZED_USERS)) {
+                debugLog(`Benutzer ${interaction.user.tag} ist nicht berechtigt, den Befehl ${interaction.commandName} auszuführen`);
                 return interaction.reply({ 
                     content: '❌ Du bist nicht berechtigt, diesen Befehl auszuführen.', 
                     ephemeral: true 
@@ -212,7 +237,10 @@ function setupHandlers(client) {
         
         // Button-Handler für Rollensteuerung
         if (interaction.isButton()) {
+            debugLog(`Button-Interaction empfangen: ${interaction.customId} von ${interaction.user.tag} (${interaction.user.id})`);
+            
             if (!UPDATE_ROLE_ID) {
+                debugLog('Button-Interaktion fehlgeschlagen: UPDATE_ROLE_ID nicht konfiguriert');
                 return await interaction.reply({
                     content: '❌ Die Benachrichtigungsfunktion ist nicht konfiguriert.',
                     ephemeral: true

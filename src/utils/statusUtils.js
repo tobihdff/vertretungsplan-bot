@@ -1,6 +1,7 @@
 const { ActivityType } = require('discord.js');
-const { BOT_STATUS, cache } = require('../config');
+const { BOT_STATUS, cache, DEBUG } = require('../config');
 const { checkApiAvailability } = require('../services/apiService');
+const { debugLog } = require('./debugUtils');
 
 /**
  * Aktualisiert den Bot-Status basierend auf der API-Erreichbarkeit
@@ -9,11 +10,14 @@ async function updateBotStatus(client) {
     try {
         const { available, statusChanged } = await checkApiAvailability();
         
+        debugLog(`Aktualisiere Bot-Status: API verfügbar=${available}, Status geändert=${statusChanged}`);
+        
         // Wenn sich der Status nicht geändert hat, nichts tun
         if (!statusChanged && cache.statusChanged) return;
         
         if (available) {
             // API ist erreichbar - Online-Status setzen
+            debugLog('Setze Bot-Status auf ONLINE');
             await client.user.setPresence({
                 activities: [{
                     name: BOT_STATUS.ACTIVITY.name,
@@ -26,6 +30,7 @@ async function updateBotStatus(client) {
             }
         } else {
             // API ist nicht erreichbar - Do Not Disturb Status setzen
+            debugLog('Setze Bot-Status auf DND (Do Not Disturb)');
             await client.user.setPresence({
                 activities: [], // Keine Aktivität
                 status: BOT_STATUS.PRESENCE.DND
@@ -50,6 +55,7 @@ function startApiMonitoring(client, retryInterval) {
     
     async function checkAndUpdateStatus() {
         try {
+            debugLog('API-Monitoring: Überprüfe API-Status');
             const { available } = await checkApiAvailability();
             
             if (available) {
@@ -57,6 +63,7 @@ function startApiMonitoring(client, retryInterval) {
                 if (monitoringInterval) {
                     clearInterval(monitoringInterval);
                     monitoringInterval = null;
+                    debugLog('API-Monitoring: Beende Monitoring - API ist wieder erreichbar');
                     console.log('API-Monitoring beendet - API ist wieder erreichbar');
                 }
                 
@@ -64,6 +71,7 @@ function startApiMonitoring(client, retryInterval) {
                 await updateBotStatus(client);
             } else if (!monitoringInterval) {
                 // Wenn API nicht erreichbar ist und noch kein Monitoring läuft, starte es
+                debugLog(`API-Monitoring: Starte Monitoring alle ${retryInterval / 60000} Minuten`);
                 console.log(`API ist nicht erreichbar - Starte Monitoring alle ${retryInterval / 60000} Minuten`);
                 monitoringInterval = setInterval(() => checkAndUpdateStatus(), retryInterval);
             }

@@ -1,16 +1,21 @@
 const { createCanvas } = require('canvas');
-const { IMAGE_CONFIG } = require('../config');
+const { IMAGE_CONFIG, DEBUG } = require('../config');
 const { formatReadableDate } = require('../utils/dateUtils');
+const { debugLog } = require('../utils/debugUtils');
 
 /**
  * Erstellt ein Bild des Vertretungsplans
  */
 async function createPlanImage(data, targetDate) {
     try {
+        debugLog(`Starte Bildgenerierung für Datum: ${formatReadableDate(targetDate)}`);
+        debugLog(`Anzahl der Einträge für Bildgenerierung: ${data?.length || 0}`);
+        
         const { width, marginX, marginY, cardHeight, cardGap, footerHeight, 
                 cardRadius, headerHeight, numRows, fonts, status } = IMAGE_CONFIG;
         
         const height = marginY * 2 + headerHeight + (cardHeight + cardGap) * numRows + footerHeight;
+        debugLog(`Bild-Dimensionen: ${width}x${height}px`);
         
         // Canvas & Kontext
         const canvas = createCanvas(width, height);
@@ -46,6 +51,10 @@ async function createPlanImage(data, targetDate) {
             const x = marginX;
             const w = width - 2 * marginX;
             const cardStatus = entry.entfall ? status.entfall : entry.vertretung ? status.vertretung : status.normal;
+            
+            if (DEBUG) {
+                debugLog(`Zeichne Karte ${index+1}: Stunde=${entry.Stunde}, Fach=${entry.Fach}, Status=${entry.entfall ? 'Entfall' : entry.vertretung ? 'Vertretung' : 'Normal'}`);
+            }
             
             // Hintergrundkarte
             ctx.fillStyle = cardStatus.bg;
@@ -100,18 +109,23 @@ async function createPlanImage(data, targetDate) {
                 ctx.fillStyle = '#333';
                 ctx.fillText(item.label, textX, boxY + boxHeight - 3);
             });
+            
+            debugLog('Legende für Vertretungsplan wurde gezeichnet');
         }
         
         // Cards zeichnen mit den geladenen Daten
         if (Array.isArray(data) && data.length > 0) {
+            debugLog(`Zeichne ${data.length} Einträge für den Vertretungsplan`);
             data.forEach((entry, i) => {
                 try {
                     drawCard(entry, i);
                 } catch (err) {
+                    debugLog(`Fehler beim Zeichnen der Karte für Eintrag ${i}: ${err.message}`);
                     console.error(`Error drawing card for entry at index ${i}:`, err);
                 }
             });
         } else {
+            debugLog('Keine oder ungültige Daten zum Zeichnen vorhanden');
             console.warn('Keine oder ungültige Daten zum Zeichnen vorhanden.');
         }
         
@@ -119,8 +133,10 @@ async function createPlanImage(data, targetDate) {
         drawLegend();
         
         // Erstelle den Buffer und gebe ihn zurück
+        debugLog('Bildgenerierung abgeschlossen, erstelle Buffer');
         return canvas.toBuffer('image/png');
     } catch (error) {
+        debugLog(`Fehler bei der Bildgenerierung: ${error.message}`);
         console.error("Error during image creation:", error);
         throw error;
     }

@@ -5,6 +5,7 @@ const { hasDataChanged, findChanges } = require('../utils/dataUtils');
 const { fetchData } = require('../services/apiService');
 const { createPlanImage } = require('../services/imageService');
 const { updateBotStatus } = require('../utils/statusUtils');
+const { debugLog } = require('../utils/debugUtils');
 
 /**
  * Sendet eine Ping-Benachrichtigung, die nach 5 Sekunden gelöscht wird
@@ -13,18 +14,22 @@ async function sendTempPingNotification(channel, roleId, message) {
     if (!roleId) return;
     
     try {
+        debugLog(`Sende temporäre Ping-Nachricht an Rolle ${roleId}: "${message}"`);
         const pingMsg = await channel.send(`<@&${roleId}> ${message}`);
         
         // Nach 5 Sekunden wieder löschen
         setTimeout(async () => {
             try {
+                debugLog('Lösche temporäre Ping-Nachricht');
                 await pingMsg.delete();
             } catch (err) {
                 console.error('Fehler beim Löschen der Ping-Nachricht:', err);
+                debugLog(`Fehler beim Löschen der Ping-Nachricht: ${err.message}`);
             }
         }, 5000);
     } catch (err) {
         console.error('Fehler beim Senden der Ping-Nachricht:', err);
+        debugLog(`Fehler beim Senden der Ping-Nachricht: ${err.message}`);
     }
 }
 
@@ -33,11 +38,14 @@ async function sendTempPingNotification(channel, roleId, message) {
  */
 async function checkPlanChanges(client) {
     try {
+        debugLog('Starte Überprüfung auf Änderungen im Vertretungsplan');
+        
         // Bot-Status aktualisieren vor API-Abruf
         await updateBotStatus(client);
         
         // Wenn API nicht verfügbar ist, abbrechen
         if (!cache.apiAvailable) {
+            debugLog('API ist nicht erreichbar - Überspringe Änderungsprüfung');
             console.log('API ist nicht erreichbar - Überspringe Änderungsprüfung');
             return;
         }
@@ -45,12 +53,14 @@ async function checkPlanChanges(client) {
         // Nächsten Schultag ermitteln
         const targetDate = getTargetDate();
         const dateParam = formatDate(targetDate);
+        debugLog(`Ermittelter Zieldatum für Änderungsprüfung: ${dateParam}`);
         
         // Daten abrufen
         const data = await fetchData(dateParam);
         
         // Wenn die API ein leeres Array zurückgibt, keine Aktualisierung durchführen
         if (!data || data.length === 0) {
+            debugLog(`Keine Daten für ${dateParam} verfügbar - Überspringe Aktualisierung`);
             console.log(`Keine Daten für ${dateParam} verfügbar - Überspringe Aktualisierung`);
             return;
         }
@@ -58,19 +68,25 @@ async function checkPlanChanges(client) {
         // Benachrichtigungs-Channel holen
         const notificationChannel = client.channels.cache.get(NOTIFICATION_CHANNEL_ID);
         if (!notificationChannel) {
+            debugLog(`Benachrichtigungs-Channel nicht gefunden! ID: ${NOTIFICATION_CHANNEL_ID}`);
             console.error('Benachrichtigungs-Channel nicht gefunden!');
             return;
         }
         
         // Überprüfen, ob sich die Daten geändert haben
+        debugLog('Prüfe auf Änderungen in den Daten');
         const dataChanged = hasDataChanged(cache.lastData, data);
         
         // Wenn sich die Daten geändert haben und es vorherige Daten gibt
         if (dataChanged && cache.lastData) {
+            debugLog('Änderungen in den Daten erkannt');
             const targetDateStr = formatReadableDate(targetDate);
             
             // Spezifische Änderungen identifizieren
+            debugLog('Identifiziere spezifische Änderungen');
             const { newSubstitutions, newCancellations } = findChanges(cache.lastData, data);
+            
+            debugLog(`Gefundene Änderungen: ${newSubstitutions.length} neue Vertretungen, ${newCancellations.length} neue Entfälle`);
             
             // Erstelle lesbare Strings für die Änderungen
             let substitutionText = '';
@@ -90,6 +106,7 @@ async function checkPlanChanges(client) {
             }
             
             // Embed für die Aktualisierungsnachricht erstellen
+            debugLog('Erstelle Embed für Aktualisierungsnachricht');
             const updateEmbed = new EmbedBuilder()
                 .setColor('#FFA500') // Orange Farbe für Aufmerksamkeit
                 .setTitle('📝 Vertretungsplan aktualisiert')
@@ -127,6 +144,7 @@ async function checkPlanChanges(client) {
             
             // Debug-Informationen hinzufügen, wenn der Debug-Modus aktiv ist
             if (DEBUG) {
+                debugLog('Füge Debug-Informationen zum Embed hinzu');
                 updateEmbed.addFields({ 
                     name: '🔍 DEBUG: Rohdaten (alte Daten)', 
                     value: '```json\n' + JSON.stringify(cache.lastData, null, 2).substring(0, 1000) + '...\n```' 
@@ -136,13 +154,21 @@ async function checkPlanChanges(client) {
                     name: '🔍 DEBUG: Rohdaten (neue Daten)', 
                     value: '```json\n' + JSON.stringify(data, null, 2).substring(0, 1000) + '...\n```' 
                 });
+                
+                // Zusätzliche Debug-Informationen
+                updateEmbed.addFields({ 
+                    name: '🔍 DEBUG: Änderungsdetails', 
+                    value: `Zeitstempel: ${new Date().toISOString()}\nÄnderungen erkannt: Ja\nNeue Vertretungen: ${newSubstitutions.length}\nNeue Entfälle: ${newCancellations.length}` 
+                });
             }
                 
             // Embed senden ohne Rollenerwähnung
+            debugLog('Sende Aktualisierungs-Embed');
             await notificationChannel.send({ embeds: [updateEmbed] });
             
             // Separate Ping-Nachricht senden, die nach 5 Sekunden gelöscht wird
             if (UPDATE_ROLE_ID) {
+                debugLog(`Sende temporäre Ping-Nachricht an Rolle ${UPDATE_ROLE_ID}`);
                 await sendTempPingNotification(
                     notificationChannel, 
                     UPDATE_ROLE_ID, 
@@ -151,22 +177,27 @@ async function checkPlanChanges(client) {
             }
             
             // Speichere die neuen Daten
+            debugLog('Speichere neue Daten im Cache');
             cache.lastData = data;
             
             console.log(`Änderungen im Vertretungsplan erkannt: ${new Date().toLocaleString()}`);
         } else if (dataChanged) {
             // Initialzustand - speichern ohne zu benachrichtigen
+            debugLog('Initialzustand: Speichere Daten ohne Benachrichtigung');
             cache.lastData = data;
             console.log(`Initiale Daten gespeichert: ${new Date().toLocaleString()}`);
         } else {
+            debugLog('Keine Änderungen im Vertretungsplan erkannt');
             console.log(`Keine Änderungen im Vertretungsplan: ${new Date().toLocaleString()}`);
         }
         
         // Letzten Prüfzeitpunkt speichern
         cache.lastCheck = new Date();
+        debugLog(`Prüfung abgeschlossen: ${cache.lastCheck.toISOString()}`);
         
     } catch (err) {
         console.error('Fehler beim Überprüfen auf Änderungen:', err);
+        debugLog(`Fehler bei der Änderungsprüfung: ${err.message}`);
     }
 }
 
@@ -175,11 +206,14 @@ async function checkPlanChanges(client) {
  */
 async function updatePlan(client) {
     try {
+        debugLog('Starte vollständige Aktualisierung des Vertretungsplans');
+        
         // Bot-Status aktualisieren vor API-Abruf
         await updateBotStatus(client);
         
         // Wenn API nicht verfügbar ist, abbrechen
         if (!cache.apiAvailable) {
+            debugLog('API ist nicht erreichbar - Überspringe Planaktualisierung');
             console.log('API ist nicht erreichbar - Überspringe Planaktualisierung');
             return;
         }
@@ -187,12 +221,14 @@ async function updatePlan(client) {
         // Nächsten Schultag ermitteln
         const targetDate = getTargetDate();
         const dateParam = formatDate(targetDate);
+        debugLog(`Ermittelter Zieldatum für Planaktualisierung: ${dateParam}`);
         
         // Daten abrufen
         const data = await fetchData(dateParam);
         
         // Wenn die API ein leeres Array zurückgibt, keine Aktualisierung durchführen
         if (!data || data.length === 0) {
+            debugLog(`Keine Daten für ${dateParam} verfügbar - Überspringe Aktualisierung`);
             console.log(`Keine Daten für ${dateParam} verfügbar - Überspringe Aktualisierung`);
             return;
         }
@@ -200,6 +236,7 @@ async function updatePlan(client) {
         // Plan-Channel holen
         const planChannel = client.channels.cache.get(PLAN_CHANNEL_ID);
         if (!planChannel) {
+            debugLog(`Plan-Channel nicht gefunden! ID: ${PLAN_CHANNEL_ID}`);
             console.error('Plan-Channel nicht gefunden!');
             return;
         }
@@ -208,18 +245,21 @@ async function updatePlan(client) {
         await checkPlanChanges(client);
         
         // Bild erstellen
+        debugLog('Erstelle Bild für Vertretungsplan');
         const imageBuffer = await createPlanImage(data, targetDate);
         const attachment = new AttachmentBuilder(imageBuffer, { name: 'vertretungsplan.png' });
         
         // Alte Nachricht löschen, falls vorhanden
         if (cache.lastMessageId) {
             try {
+                debugLog(`Lösche alte Nachricht mit ID: ${cache.lastMessageId}`);
                 const oldMessage = await planChannel.messages.fetch(cache.lastMessageId);
                 if (oldMessage) {
                     await oldMessage.delete();
                 }
             } catch (err) {
                 console.error('Fehler beim Löschen der alten Nachricht:', err);
+                debugLog(`Fehler beim Löschen der alten Nachricht: ${err.message}`);
             }
         }
         
@@ -249,6 +289,7 @@ async function updatePlan(client) {
         
         // Debug-Informationen hinzufügen, wenn der Debug-Modus aktiv ist
         if (DEBUG) {
+            debugLog('Füge Debug-Informationen zur Nachricht hinzu');
             // Debug-Informationen als Embed erstellen, damit die Nachricht besser strukturiert ist
             const debugEmbed = new EmbedBuilder()
                 .setColor('#808080') // Graue Farbe für Debug-Informationen
@@ -306,6 +347,7 @@ async function updatePlan(client) {
         console.log(`Vertretungsplan aktualisiert: ${new Date().toLocaleString()}`);
     } catch (err) {
         console.error('Fehler beim Aktualisieren des Vertretungsplans:', err);
+        debugLog(`Fehler bei der Planaktualisierung: ${err.message}`);
     }
 }
 
