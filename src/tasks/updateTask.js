@@ -40,15 +40,11 @@ async function checkPlanChanges(client) {
     try {
         debugLog('Starte Überprüfung auf Änderungen im Vertretungsplan');
         
-        // Bot-Status aktualisieren vor API-Abruf
-        await updateBotStatus(client);
+        // Status-Überprüfung deaktiviert
+        // await updateBotStatus(client);
         
-        // Wenn API nicht verfügbar ist, abbrechen - jetzt mit Berücksichtigung der Fehlerschwelle
-        if (!cache.apiAvailable) {
-            debugLog('API ist nicht erreichbar - Überspringe Änderungsprüfung');
-            console.log('API ist nicht erreichbar - Überspringe Änderungsprüfung');
-            return;
-        }
+        // API immer als verfügbar betrachten
+        cache.apiAvailable = true;
         
         // Nächsten Schultag ermitteln
         const targetDate = getTargetDate();
@@ -77,9 +73,6 @@ async function checkPlanChanges(client) {
                 } else {
                     // Alle Versuche fehlgeschlagen
                     debugLog(`Alle ${maxRetries+1} Versuche fehlgeschlagen, breche ab`);
-                    
-                    // Status aktualisieren - fetchData erhöht bereits den Fehlerzähler
-                    await updateBotStatus(client);
                     return;
                 }
             }
@@ -279,15 +272,11 @@ async function updatePlan(client) {
     try {
         debugLog('Starte vollständige Aktualisierung des Vertretungsplans');
         
-        // Bot-Status aktualisieren vor API-Abruf
-        await updateBotStatus(client);
+        // Status-Überprüfung deaktiviert
+        // await updateBotStatus(client);
         
-        // Wenn API nicht verfügbar ist, abbrechen - jetzt mit Berücksichtigung der Fehlerschwelle
-        if (!cache.apiAvailable) {
-            debugLog('API ist nicht erreichbar - Überspringe Planaktualisierung');
-            console.log('API ist nicht erreichbar - Überspringe Planaktualisierung');
-            return;
-        }
+        // API immer als verfügbar betrachten
+        cache.apiAvailable = true;
         
         // Nächsten Schultag ermitteln
         const targetDate = getTargetDate();
@@ -316,9 +305,6 @@ async function updatePlan(client) {
                 } else {
                     // Alle Versuche fehlgeschlagen
                     debugLog(`Alle ${maxRetries+1} Versuche fehlgeschlagen, breche ab`);
-                    
-                    // Status aktualisieren - fetchData erhöht bereits den Fehlerzähler
-                    await updateBotStatus(client);
                     return;
                 }
             }

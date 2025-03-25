@@ -95,13 +95,16 @@ function setupHandlers(client) {
         await registerCommands(client);
         debugLog('Slash-Commands wurden registriert');
         
-        // Initialen Bot-Status setzen
-        await updateBotStatus(client);
+        // Initialen Bot-Status setzen (vereinfacht)
+        await setInitialBotStatus(client);
         debugLog('Initialer Bot-Status wurde gesetzt');
         
-        // API-Monitoring Funktion erstellen
-        const monitorApiStatus = startApiMonitoring(client, INTERVALS.API_RETRY_INTERVAL);
-        debugLog(`API-Monitoring konfiguriert mit Intervall: ${INTERVALS.API_RETRY_INTERVAL}ms`);
+        // API-Monitoring deaktiviert
+        // const monitorApiStatus = startApiMonitoring(client, INTERVALS.API_RETRY_INTERVAL);
+        // debugLog(`API-Monitoring konfiguriert mit Intervall: ${INTERVALS.API_RETRY_INTERVAL}ms`);
+        
+        // Cache als verfügbar markieren
+        cache.apiAvailable = true;
         
         // Beim ersten Start alle Nachrichten im Plan-Channel löschen
         if (!cache.initialized) {
@@ -131,11 +134,12 @@ function setupHandlers(client) {
         console.log(`Prüf-Intervall: ${INTERVALS.CHECK_INTERVAL / 60000} Minuten`);
         debugLog(`Konfigurations-Details: Update alle ${INTERVALS.UPDATE_INTERVAL / 60000}min, Prüfung alle ${INTERVALS.CHECK_INTERVAL / 60000}min`);
         
-        // Separate Intervalle für Vollaktualisierung, Änderungsprüfung und Status-Überwachung
+        // Separate Intervalle für Vollaktualisierung, Änderungsprüfung
         setInterval(() => updatePlan(client), INTERVALS.UPDATE_INTERVAL);
         setInterval(() => checkPlanChanges(client), INTERVALS.CHECK_INTERVAL);
         
-        // Statusprüfung vor jeder API-Anfrage
+        // Status-Prüfung deaktiviert
+        /*
         setInterval(() => {
             debugLog('Führe regelmäßige Status-Aktualisierung durch');
             updateBotStatus(client).then(() => {
@@ -146,6 +150,7 @@ function setupHandlers(client) {
                 }
             });
         }, INTERVALS.CHECK_INTERVAL);
+        */
     });
     
     // Handler für Interaktionen (Commands und Buttons)
