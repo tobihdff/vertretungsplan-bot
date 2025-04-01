@@ -30,6 +30,9 @@ const INTERVALS = {
     API_RETRY_INTERVAL: parseInt(process.env.API_RETRY_INTERVAL_MINUTES || '1') * 60 * 1000
 };
 
+// Anzahl der erforderlichen Bestätigungen für allgemeine Änderungen
+const GENERAL_CHANGE_THRESHOLD = 3;
+
 // Liste der autorisierten Benutzer-IDs für Tests
 const AUTHORIZED_USERS = process.env.AUTHORIZED_USERS ? process.env.AUTHORIZED_USERS.split(',') : [];
 
@@ -50,8 +53,8 @@ const IMAGE_CONFIG = {
     numRows: 8,
     fonts: {
         normal: '20px "Segoe UI", sans-serif',
-        title: 'bold 28px "Segoe UI", sans-serif',
         small: '18px "Segoe UI", sans-serif',
+        title: 'bold 28px "Segoe UI", sans-serif',
         bold: 'bold 20px "Segoe UI", sans-serif'
     },
     status: {
@@ -68,7 +71,9 @@ const cache = {
     data: {},                   // Speichert die letzten Daten pro Datum
     messages: {},               // Speichert die Nachrichten-IDs pro Datum
     lastCheck: null,            // Wann wurde zuletzt auf Änderungen geprüft
-    initialStatusSet: false     // Flag ob der initiale Status gesetzt wurde
+    initialStatusSet: false,    // Flag ob der initiale Status gesetzt wurde
+    generalChanges: {},         // Speichert Zähler für allgemeine Änderungen pro Datum
+    generalChangesHash: {}      // Speichert Hash der letzten allgemeinen Änderungen pro Datum
 };
 
 // Bot-Status Konfiguration
@@ -95,5 +100,6 @@ module.exports = {
     IMAGE_CONFIG,
     cache,
     DEBUG,
-    BOT_STATUS
+    BOT_STATUS,
+    GENERAL_CHANGE_THRESHOLD
 };

@@ -1,11 +1,23 @@
 const { AttachmentBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { PLAN_CHANNEL_ID, NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEBUG, BASE_URL } = require('../config');
+const { PLAN_CHANNEL_ID, NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEBUG, BASE_URL, GENERAL_CHANGE_THRESHOLD } = require('../config');
 const { getTargetDate, formatDate, formatReadableDate } = require('../utils/dateUtils');
 const { hasDataChanged, findChanges } = require('../utils/dataUtils');
 const { fetchData, ERROR_THRESHOLD } = require('../services/apiService');
 const { createPlanImage } = require('../services/imageService');
 const { updateBotStatus } = require('../utils/statusUtils');
 const { debugLog } = require('../utils/debugUtils');
+const crypto = require('crypto');
+
+/**
+ * Erzeugt einen Hash für die Änderungen zur Erkennung identischer Daten
+ * @param {object} data - Die Daten, aus denen ein Hash generiert werden soll
+ * @returns {string} Hash-String der Daten
+ */
+function createDataHash(data) {
+    if (!data) return '';
+    const jsonString = JSON.stringify(data);
+    return crypto.createHash('md5').update(jsonString).digest('hex');
+}
 
 /**
  * Sendet eine Ping-Benachrichtigung, die nach 5 Sekunden gelöscht wird
@@ -39,9 +51,6 @@ async function sendTempPingNotification(channel, roleId, message) {
 async function checkPlanChanges(client) {
     try {
         debugLog('Starte Überprüfung auf Änderungen im Vertretungsplan');
-        
-        // Status-Überprüfung deaktiviert
-        // await updateBotStatus(client);
         
         // API immer als verfügbar betrachten
         cache.apiAvailable = true;
@@ -109,103 +118,126 @@ async function checkPlanChanges(client) {
             
             debugLog(`Gefundene Änderungen: ${newSubstitutions.length} neue Vertretungen, ${newCancellations.length} neue Entfälle`);
             
-            // Erstelle lesbare Strings für die Änderungen
-            let substitutionText = '';
-            let cancellationText = '';
+            // Prüfen, ob es spezifische Änderungen gibt
+            const hasSpecificChanges = newSubstitutions.length > 0 || newCancellations.length > 0;
             
-            if (newSubstitutions.length > 0) {
-                substitutionText = newSubstitutions.map(item => {
-                    const originalTeacher = item.originalLehrkraft || item.Lehrkraft;
-                    return `• **${item.Stunde}. Std ${item.Fach}**: ${originalTeacher} → **${item.Lehrkraft}** (Raum ${item.Raum})`;
-                }).join('\n');
-            }
-            
-            if (newCancellations.length > 0) {
-                cancellationText = newCancellations.map(item => {
-                    return `• **${item.Stunde}. Std ${item.Fach}**: Unterricht bei ${item.Lehrkraft} entfällt`;
-                }).join('\n');
-            }
-            
-            // Embed für die Aktualisierungsnachricht erstellen
-            debugLog('Erstelle Embed für Aktualisierungsnachricht');
-            const updateEmbed = new EmbedBuilder()
-                .setColor('#FFA500') // Orange Farbe für Aufmerksamkeit
-                .setTitle('📝 Vertretungsplan aktualisiert')
-                .setDescription(`Der Vertretungsplan für **${targetDateStr}** wurde aktualisiert.`)
-                .setTimestamp()
-                .setFooter({ text: 'WITA24 Vertretungsplan-Bot' });
-            
-            // Standardfelder hinzufügen
-            updateEmbed.addFields(
-                { name: 'Stand', value: new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr' }
-            );
-            
-            // Spezifische Änderungen als Felder hinzufügen, falls vorhanden
-            if (substitutionText) {
-                updateEmbed.addFields({ 
-                    name: '🔄 Neue Vertretungen', 
-                    value: substitutionText 
-                });
-            }
-            
-            if (cancellationText) {
-                updateEmbed.addFields({ 
-                    name: '❌ Unterrichtsentfall', 
-                    value: cancellationText 
-                });
-            }
-            
-            // Wenn keine spezifischen Änderungen erkannt wurden, einen allgemeinen Hinweis hinzufügen
-            if (!substitutionText && !cancellationText) {
-                updateEmbed.addFields({ 
-                    name: 'ℹ️ Änderungen', 
-                    value: 'Es wurden allgemeine Änderungen erkannt. Details sind im Vertretungsplan zu finden.' 
-                });
-            }
-            
-            // Debug-Informationen hinzufügen, wenn der Debug-Modus aktiv ist
-            if (DEBUG) {
-                debugLog('Füge Debug-Informationen zum Embed hinzu');
-                updateEmbed.addFields({ 
-                    name: '🔍 DEBUG: Rohdaten (alte Daten)', 
-                    value: '```json\n' + JSON.stringify(lastData, null, 2).substring(0, 1000) + '...\n```' 
-                });
+            // Bei spezifischen Änderungen (Vertretungen/Entfälle): Sofort Benachrichtigung senden
+            if (hasSpecificChanges) {
+                // Daten im Cache speichern und Änderungszähler zurücksetzen
+                cache.data[dateParam] = data;
+                cache.generalChanges[dateParam] = 0;
+                cache.generalChangesHash[dateParam] = '';
                 
-                updateEmbed.addFields({ 
-                    name: '🔍 DEBUG: Rohdaten (neue Daten)', 
-                    value: '```json\n' + JSON.stringify(data, null, 2).substring(0, 1000) + '...\n```' 
-                });
+                // Erstelle lesbare Strings für die Änderungen
+                let substitutionText = '';
+                let cancellationText = '';
                 
-                // Zusätzliche Debug-Informationen
-                updateEmbed.addFields({ 
-                    name: '🔍 DEBUG: Änderungsdetails', 
-                    value: `Zeitstempel: ${new Date().toISOString()}\nÄnderungen erkannt: Ja\nNeue Vertretungen: ${newSubstitutions.length}\nNeue Entfälle: ${newCancellations.length}` 
-                });
-            }
+                if (newSubstitutions.length > 0) {
+                    substitutionText = newSubstitutions.map(item => {
+                        const originalTeacher = item.originalLehrkraft || item.Lehrkraft;
+                        return `• **${item.Stunde}. Std ${item.Fach}**: ${originalTeacher} → **${item.Lehrkraft}** (Raum ${item.Raum})`;
+                    }).join('\n');
+                }
                 
-            // Embed senden ohne Rollenerwähnung
-            debugLog('Sende Aktualisierungs-Embed');
-            await notificationChannel.send({ embeds: [updateEmbed] });
-            
-            // Separate Ping-Nachricht senden, die nach 5 Sekunden gelöscht wird
-            if (UPDATE_ROLE_ID) {
-                debugLog(`Sende temporäre Ping-Nachricht an Rolle ${UPDATE_ROLE_ID}`);
-                await sendTempPingNotification(
-                    notificationChannel, 
-                    UPDATE_ROLE_ID, 
-                    'Der Vertretungsplan wurde aktualisiert!'
+                if (newCancellations.length > 0) {
+                    cancellationText = newCancellations.map(item => {
+                        return `• **${item.Stunde}. Std ${item.Fach}**: Unterricht bei ${item.Lehrkraft} entfällt`;
+                    }).join('\n');
+                }
+                
+                // Embed für die Aktualisierungsnachricht erstellen
+                debugLog('Erstelle Embed für Aktualisierungsnachricht');
+                const updateEmbed = new EmbedBuilder()
+                    .setColor('#FFA500') // Orange Farbe für Aufmerksamkeit
+                    .setTitle('📝 Vertretungsplan aktualisiert')
+                    .setDescription(`Der Vertretungsplan für **${targetDateStr}** wurde aktualisiert.`)
+                    .setTimestamp()
+                    .setFooter({ text: 'WITA24 Vertretungsplan-Bot' });
+                
+                // Standardfelder hinzufügen
+                updateEmbed.addFields(
+                    { name: 'Stand', value: new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr' }
                 );
+                
+                // Spezifische Änderungen als Felder hinzufügen
+                if (substitutionText) {
+                    updateEmbed.addFields({ 
+                        name: '🔄 Neue Vertretungen', 
+                        value: substitutionText 
+                    });
+                }
+                
+                if (cancellationText) {
+                    updateEmbed.addFields({ 
+                        name: '❌ Unterrichtsentfall', 
+                        value: cancellationText 
+                    });
+                }
+                
+                // Debug-Informationen hinzufügen, wenn der Debug-Modus aktiv ist
+                if (DEBUG) {
+                    debugLog('Füge Debug-Informationen zum Embed hinzu');
+                    updateEmbed.addFields({ 
+                        name: '🔍 DEBUG: Änderungsdetails', 
+                        value: `Zeitstempel: ${new Date().toISOString()}\nÄnderungen erkannt: Ja\nNeue Vertretungen: ${newSubstitutions.length}\nNeue Entfälle: ${newCancellations.length}` 
+                    });
+                }
+                    
+                // Embed senden ohne Rollenerwähnung
+                debugLog('Sende Aktualisierungs-Embed für spezifische Änderungen');
+                await notificationChannel.send({ embeds: [updateEmbed] });
+                
+                // Separate Ping-Nachricht senden, die nach 5 Sekunden gelöscht wird
+                if (UPDATE_ROLE_ID) {
+                    debugLog(`Sende temporäre Ping-Nachricht an Rolle ${UPDATE_ROLE_ID}`);
+                    await sendTempPingNotification(
+                        notificationChannel, 
+                        UPDATE_ROLE_ID, 
+                        'Der Vertretungsplan wurde aktualisiert!'
+                    );
+                }
+                
+                console.log(`Spezifische Änderungen im Vertretungsplan erkannt: ${new Date().toLocaleString()}`);
+            } 
+            // Bei allgemeinen Änderungen: Zähler erhöhen und ggf. nach 3-maligem Auftreten aktualisieren
+            else {
+                // Erzeugen eines Hashes der neuen Daten für Vergleiche
+                const dataHash = createDataHash(data);
+                const lastHash = cache.generalChangesHash[dateParam];
+                
+                // Prüfe, ob der Hash der aktuellen Änderung mit dem letzten übereinstimmt
+                if (dataHash === lastHash) {
+                    // Gleiche Änderung wie zuvor - erhöhe Zähler
+                    cache.generalChanges[dateParam] = (cache.generalChanges[dateParam] || 0) + 1;
+                    debugLog(`Gleiche allgemeine Änderung erkannt - Zähler: ${cache.generalChanges[dateParam]}/${GENERAL_CHANGE_THRESHOLD}`);
+                    
+                    // Bei Erreichen des Schwellwerts Daten aktualisieren
+                    if (cache.generalChanges[dateParam] >= GENERAL_CHANGE_THRESHOLD) {
+                        debugLog(`Schwellwert für allgemeine Änderungen erreicht (${GENERAL_CHANGE_THRESHOLD}x) - Aktualisiere Daten`);
+                        cache.data[dateParam] = data;
+                        cache.generalChanges[dateParam] = 0;
+                        
+                        // Debug-Log für Konsole
+                        console.log(`Allgemeine Änderungen im Vertretungsplan ${GENERAL_CHANGE_THRESHOLD}x bestätigt - Aktualisiert: ${new Date().toLocaleString()}`);
+                    } else {
+                        debugLog(`Allgemeine Änderung erkannt, aber Schwellwert noch nicht erreicht (${cache.generalChanges[dateParam]}/${GENERAL_CHANGE_THRESHOLD}) - Keine Aktualisierung`);
+                    }
+                } else {
+                    // Neue allgemeine Änderung - setze Zähler auf 1 und speichere Hash
+                    cache.generalChanges[dateParam] = 1;
+                    cache.generalChangesHash[dateParam] = dataHash;
+                    debugLog(`Neue allgemeine Änderung erkannt - Zähler auf 1 gesetzt, neuer Hash gespeichert: ${dataHash.substring(0, 8)}...`);
+                }
+                
+                // Bei allgemeinen Änderungen KEINE Benachrichtigung senden - aber im Debug-Log vermerken
+                debugLog('Allgemeine Änderungen werden nicht benachrichtigt');
             }
-            
-            // Speichere die neuen Daten
-            debugLog('Speichere neue Daten im Cache');
-            cache.data[dateParam] = data;
-            
-            console.log(`Änderungen im Vertretungsplan erkannt: ${new Date().toLocaleString()}`);
         } else if (dataChanged) {
             // Initialzustand - speichern ohne zu benachrichtigen
             debugLog('Initialzustand: Speichere Daten ohne Benachrichtigung');
             cache.data[dateParam] = data;
+            cache.generalChanges[dateParam] = 0;
+            cache.generalChangesHash[dateParam] = '';
             console.log(`Initiale Daten gespeichert für ${dateParam}: ${new Date().toLocaleString()}`);
         } else {
             debugLog('Keine Änderungen im Vertretungsplan erkannt');
@@ -232,12 +264,16 @@ async function cleanupOldMessages(channel) {
         // Hole die letzten 50 Nachrichten (wäre ausreichend für mehrere Wochen)
         const messages = await channel.messages.fetch({ limit: 50 });
         
+        // Alle aktuellen Nachrichten-IDs aus dem Cache holen
+        const currentMessageIds = Object.values(cache.messages);
+        debugLog(`Aktuelle Nachrichten-IDs im Cache: ${currentMessageIds.length}`);
+        
         // Filtere Nachrichten, die vom Bot stammen und Vertretungspläne enthalten
+        // aber KEINE der aktuellen Nachrichten sind
         const oldPlanMessages = messages.filter(msg => 
             msg.author.id === channel.client.user.id && 
             msg.content.includes('**Vertretungsplan für') &&
-            // Vermeidet das Löschen der Message, die gerade neu gesendet wird
-            !cache.messages[Object.keys(cache.messages)[0]] || msg.id !== cache.messages[Object.keys(cache.messages)[0]]
+            !currentMessageIds.includes(msg.id)
         );
         
         // Nur Nachrichten anzeigen, die gelöscht werden
@@ -333,24 +369,6 @@ async function updatePlan(client) {
         const imageBuffer = await createPlanImage(data, targetDate);
         const attachment = new AttachmentBuilder(imageBuffer, { name: 'vertretungsplan.png' });
         
-        // Alte Nachricht für das aktuelle Datum löschen, falls vorhanden
-        const lastMessageId = cache.messages[dateParam];
-        if (lastMessageId) {
-            try {
-                debugLog(`Lösche alte Nachricht mit ID: ${lastMessageId}`);
-                const oldMessage = await planChannel.messages.fetch(lastMessageId);
-                if (oldMessage) {
-                    await oldMessage.delete();
-                }
-            } catch (err) {
-                console.error('Fehler beim Löschen der alten Nachricht:', err);
-                debugLog(`Fehler beim Löschen der alten Nachricht: ${err.message}`);
-            }
-        }
-        
-        // Alle älteren Vertretungsplan-Nachrichten löschen
-        await cleanupOldMessages(planChannel);
-        
         // Buttons für die Rolle erstellen (falls konfiguriert)
         let components = [];
         if (UPDATE_ROLE_ID) {
@@ -370,16 +388,28 @@ async function updatePlan(client) {
             components.push(row);
         }
         
-        // Neue Nachricht senden
+        // Neue Nachricht senden oder bestehende aktualisieren
         const targetDateStr = formatReadableDate(targetDate);
-        
         let messageContent = `**Vertretungsplan für ${targetDateStr}**`;
+        let existingMessage = null;
         
-        // Debug-Informationen hinzufügen, wenn der Debug-Modus aktiv ist
+        // Prüfen, ob bereits eine Nachricht für dieses Datum existiert
+        const lastMessageId = cache.messages[dateParam];
+        if (lastMessageId) {
+            try {
+                debugLog(`Versuche bestehende Nachricht mit ID: ${lastMessageId} zu laden`);
+                existingMessage = await planChannel.messages.fetch(lastMessageId).catch(() => null);
+            } catch (err) {
+                debugLog(`Fehler beim Laden der bestehenden Nachricht: ${err.message}`);
+                existingMessage = null;
+            }
+        }
+        
+        // Debug-Informationen vorbereiten, wenn im Debug-Modus
+        let debugEmbed = null;
         if (DEBUG) {
             debugLog('Füge Debug-Informationen zur Nachricht hinzu');
-            // Debug-Informationen als Embed erstellen, damit die Nachricht besser strukturiert ist
-            const debugEmbed = new EmbedBuilder()
+            debugEmbed = new EmbedBuilder()
                 .setColor('#808080') // Graue Farbe für Debug-Informationen
                 .setTitle('🔍 Debug-Informationen')
                 .setDescription('Rohdaten vom API-Aufruf:')
@@ -409,27 +439,50 @@ async function updatePlan(client) {
                     break;
                 }
             }
+        }
+        
+        // Bestehende Nachricht aktualisieren oder neue erstellen
+        if (existingMessage) {
+            debugLog('Bestehende Nachricht gefunden, aktualisiere den Anhang');
             
-            // Sende das Bild mit dem Debug-Embed
-            const newMessage = await planChannel.send({
+            const editOptions = {
                 content: messageContent,
                 files: [attachment],
-                embeds: [debugEmbed],
                 components: components
-            });
+            };
             
-            // Neue Nachricht-ID speichern
-            cache.messages[dateParam] = newMessage.id;
+            // Debug-Embed hinzufügen, falls im Debug-Modus
+            if (DEBUG && debugEmbed) {
+                editOptions.embeds = [debugEmbed];
+            } else if (existingMessage.embeds.length > 0) {
+                // Wenn vorher Embeds existierten, aber jetzt deaktiviert sind, leeres Array setzen
+                editOptions.embeds = [];
+            }
+            
+            await existingMessage.edit(editOptions);
+            debugLog(`Nachricht erfolgreich aktualisiert (ID: ${existingMessage.id})`);
         } else {
-            // Normale Nachricht ohne Debug-Informationen
-            const newMessage = await planChannel.send({
+            debugLog('Keine bestehende Nachricht gefunden oder Fehler beim Laden, erstelle neue Nachricht');
+            
+            // Alte Nachrichten bereinigen
+            await cleanupOldMessages(planChannel);
+            
+            // Sende neue Nachricht mit oder ohne Debug-Embed
+            const sendOptions = {
                 content: messageContent,
                 files: [attachment],
                 components: components
-            });
+            };
+            
+            if (DEBUG && debugEmbed) {
+                sendOptions.embeds = [debugEmbed];
+            }
+            
+            const newMessage = await planChannel.send(sendOptions);
             
             // Neue Nachricht-ID speichern
             cache.messages[dateParam] = newMessage.id;
+            debugLog(`Neue Nachricht erstellt (ID: ${newMessage.id})`);
         }
         
         console.log(`Vertretungsplan aktualisiert für ${dateParam}: ${new Date().toLocaleString()}`);
