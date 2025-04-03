@@ -5,6 +5,7 @@ const { Client } = require('discord.js');
 const { CLIENT_CONFIG, DEBUG } = require('./src/config');
 const { setupHandlers } = require('./src/bot/handlers');
 const { debugLog } = require('./src/utils/debugUtils');
+const ApiWebService = require('./src/services/apiWebService');
 
 // Debug-Modus Status ausgeben
 if (DEBUG) {
@@ -20,11 +21,18 @@ debugLog('Discord Client erstellt mit Intents: ' + JSON.stringify(CLIENT_CONFIG.
 setupHandlers(client);
 debugLog('Bot-Handler wurden eingerichtet');
 
+// API Web Service für das Webpanel initialisieren
+let apiService;
+
 // Bot einloggen
 client.login(process.env.DISCORD_TOKEN)
     .then(() => {
         console.log('Bot angemeldet');
         debugLog('Bot erfolgreich angemeldet');
+        
+        // API-Server nach erfolgreicher Anmeldung starten
+        apiService = new ApiWebService(client, require('./src/config'));
+        apiService.start();
     })
     .catch(error => {
         console.error('Fehler beim Anmelden:', error);
@@ -46,11 +54,23 @@ if (DEBUG) {
     // Event-Listener für Prozessbeendigung
     process.on('SIGINT', () => {
         debugLog('Bot wird durch SIGINT beendet');
+        
+        // API-Server stoppen, falls vorhanden
+        if (apiService) {
+            apiService.stop();
+        }
+        
         process.exit(0);
     });
     
     process.on('SIGTERM', () => {
         debugLog('Bot wird durch SIGTERM beendet');
+        
+        // API-Server stoppen, falls vorhanden
+        if (apiService) {
+            apiService.stop();
+        }
+        
         process.exit(0);
     });
 }

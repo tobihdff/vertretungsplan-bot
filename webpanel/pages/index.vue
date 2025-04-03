@@ -12,9 +12,12 @@
           </span>
         </div>
         <p class="text-gray-600 dark:text-gray-300 text-sm mb-4">
-          {{ botActive ? 'Der Bot ist aktiv und funktioniert ordnungsgemäß.' : 'Der Bot ist derzeit nicht aktiv.' }}
+          {{ statusMessage }}
         </p>
         <p class="text-sm text-gray-500 dark:text-gray-400">Letzter Check: {{ lastUpdateTime }}</p>
+        <button @click="refreshStatus" class="mt-3 w-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded transition">
+          Status aktualisieren
+        </button>
       </div>
       
       <!-- Update Card -->
@@ -23,7 +26,7 @@
         <p class="text-gray-600 dark:text-gray-300 text-sm mb-4">
           Der Vertretungsplan wurde zuletzt am {{ lastUpdateTime }} aktualisiert.
         </p>
-        <button @click="forceUpdate" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition">
+        <button @click="forceUpdate" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition" :disabled="!botActive">
           Update erzwingen
         </button>
       </div>
@@ -36,7 +39,8 @@
         </p>
         <div class="flex items-center">
           <button @click="toggleMaintenanceMode" class="w-full font-medium py-2 px-4 rounded transition"
-                 :class="maintenanceMode ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-yellow-600 hover:bg-yellow-700 text-white'">
+                 :class="maintenanceMode ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-yellow-600 hover:bg-yellow-700 text-white'"
+                 :disabled="!botActive">
             {{ maintenanceMode ? 'Wartungsmodus deaktivieren' : 'Wartungsmodus aktivieren' }}
           </button>
         </div>
@@ -48,9 +52,16 @@
       <h2 class="text-lg font-semibold mb-4 dark:text-white">Aktuelle Aktivitäten</h2>
       <div class="space-y-3">
         <div v-for="(activity, index) in recentActivities" :key="index" class="flex items-start pb-3 border-b border-gray-200 dark:border-gray-700 last:border-0">
-          <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center mr-3">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3"
+               :class="{
+                 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400': activity.type === 'update',
+                 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400': activity.type === 'notification',
+                 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400': activity.type === 'error',
+                 'bg-gray-100 dark:bg-gray-900/40 text-gray-600 dark:text-gray-400': activity.type === 'status'
+               }">
             <span v-if="activity.type === 'update'">🔄</span>
             <span v-else-if="activity.type === 'notification'">🔔</span>
+            <span v-else-if="activity.type === 'error'">❗</span>
             <span v-else>📝</span>
           </div>
           <div class="flex-1">
@@ -68,16 +79,16 @@
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors duration-300">
       <h2 class="text-lg font-semibold mb-4 dark:text-white">Schnellaktionen</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <button @click="clearChannel" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded transition">
+        <button @click="clearChannel" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded transition" :disabled="!botActive">
           Channel leeren
         </button>
-        <button @click="testNotification" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded transition">
+        <button @click="testNotification" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded transition" :disabled="!botActive">
           Benachrichtigung testen
         </button>
-        <button @click="testPlanGeneration" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded transition">
+        <button @click="testPlanGeneration" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded transition" :disabled="!botActive">
           Plan-Generierung testen
         </button>
-        <button @click="testUpdate" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded transition">
+        <button @click="testUpdate" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded transition" :disabled="!botActive">
           Änderungserkennung testen
         </button>
       </div>
@@ -86,26 +97,73 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed, onUnmounted } from 'vue';
 
 // Zustandsvariablen
-const botActive = ref(true);
+const botActive = ref(false);
 const maintenanceMode = ref(false);
-const lastUpdateTime = ref('03.04.2025 10:15');
-const recentActivities = ref([
-  { type: 'update', message: 'Vertretungsplan aktualisiert', timestamp: '03.04.2025 10:15' },
-  { type: 'notification', message: 'Benachrichtigung über neue Vertretungen gesendet', timestamp: '03.04.2025 10:15' },
-  { type: 'status', message: 'Bot gestartet', timestamp: '03.04.2025 09:00' },
-]);
+const lastUpdateTime = ref('Unbekannt');
+const recentActivities = ref([]);
+const refreshInterval = ref(null);
+const isLoading = ref(true);
 
-// Funktionen
+// Berechnete Eigenschaft für Statusmeldung
+const statusMessage = computed(() => {
+  if (isLoading.value) {
+    return 'Status wird geladen...';
+  } else if (botActive.value) {
+    return maintenanceMode.value 
+      ? 'Der Bot ist aktiv, befindet sich aber im Wartungsmodus.' 
+      : 'Der Bot ist aktiv und funktioniert ordnungsgemäß.';
+  } else {
+    return 'Der Bot ist derzeit nicht aktiv oder nicht erreichbar.';
+  }
+});
+
+// Funktion zum Abrufen des Bot-Status
+const fetchBotStatus = async () => {
+  try {
+    const response = await fetch('/api/bot/status');
+    const data = await response.json();
+    if (data.success) {
+      botActive.value = data.active;
+      maintenanceMode.value = data.maintenanceMode;
+      lastUpdateTime.value = data.lastUpdate;
+      if (data.recentActivities && data.recentActivities.length > 0) {
+        recentActivities.value = data.recentActivities;
+      }
+    } else {
+      // Status konnte nicht abgerufen werden
+      botActive.value = false;
+    }
+    isLoading.value = false;
+  } catch (error) {
+    console.error('Fehler beim Laden des Bot-Status:', error);
+    botActive.value = false;
+    isLoading.value = false;
+  }
+};
+
+// Manuelles Aktualisieren des Status
+const refreshStatus = async () => {
+  isLoading.value = true;
+  await fetchBotStatus();
+};
+
+// Update erzwingen
 const forceUpdate = async () => {
+  if (!botActive.value) {
+    alert('Der Bot ist nicht erreichbar. Update kann nicht durchgeführt werden.');
+    return;
+  }
+  
   try {
     const response = await fetch('/api/bot/force-update', { method: 'POST' });
     const data = await response.json();
     if (data.success) {
       alert('Vertretungsplan-Update wurde erfolgreich durchgeführt');
-      // Hier könnten wir Aktivitäten oder Status aktualisieren
+      // Status nach Update aktualisieren
+      await fetchBotStatus();
     } else {
       alert('Fehler beim Aktualisieren des Vertretungsplans: ' + data.error);
     }
@@ -114,30 +172,24 @@ const forceUpdate = async () => {
   }
 };
 
+// Wartungsmodus umschalten
 const toggleMaintenanceMode = async () => {
+  if (!botActive.value) {
+    alert('Der Bot ist nicht erreichbar. Wartungsmodus kann nicht geändert werden.');
+    return;
+  }
+  
   try {
     const newState = !maintenanceMode.value;
     const response = await fetch('/api/bot/maintenance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: newState })
+      body: JSON.stringify({ enable: newState }) // Korrekter Parameter-Name
     });
     const data = await response.json();
     if (data.success) {
-      maintenanceMode.value = newState;
+      await fetchBotStatus(); // Aktualisieren des Status nach Änderung
       alert(`Wartungsmodus wurde ${newState ? 'aktiviert' : 'deaktiviert'}`);
-      // Aktivität hinzufügen
-      recentActivities.value.unshift({
-        type: 'status',
-        message: `Wartungsmodus ${newState ? 'aktiviert' : 'deaktiviert'}`,
-        timestamp: new Date().toLocaleDateString('de-DE', { 
-          day: '2-digit', 
-          month: '2-digit', 
-          year: 'numeric', 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        })
-      });
     } else {
       alert('Fehler beim Ändern des Wartungsmodus: ' + data.error);
     }
@@ -146,12 +198,27 @@ const toggleMaintenanceMode = async () => {
   }
 };
 
+// Channel leeren
 const clearChannel = async () => {
+  if (!botActive.value) {
+    alert('Der Bot ist nicht erreichbar. Channel kann nicht geleert werden.');
+    return;
+  }
+  
   try {
-    const response = await fetch('/api/bot/clear-channel', { method: 'POST' });
+    // Channel ID abfragen
+    const channelId = prompt('Bitte geben Sie die Channel-ID ein:');
+    if (!channelId) return;
+    
+    const response = await fetch('/api/bot/clear-channel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channelId })
+    });
     const data = await response.json();
     if (data.success) {
       alert('Der Channel wurde erfolgreich geleert');
+      await fetchBotStatus(); // Status aktualisieren
     } else {
       alert('Fehler beim Leeren des Channels: ' + data.error);
     }
@@ -160,12 +227,19 @@ const clearChannel = async () => {
   }
 };
 
+// Benachrichtigung testen
 const testNotification = async () => {
+  if (!botActive.value) {
+    alert('Der Bot ist nicht erreichbar. Benachrichtigung kann nicht getestet werden.');
+    return;
+  }
+  
   try {
     const response = await fetch('/api/bot/test-notification', { method: 'POST' });
     const data = await response.json();
     if (data.success) {
       alert('Benachrichtigung wurde erfolgreich getestet');
+      await fetchBotStatus(); // Status aktualisieren
     } else {
       alert('Fehler beim Testen der Benachrichtigung: ' + data.error);
     }
@@ -174,12 +248,19 @@ const testNotification = async () => {
   }
 };
 
+// Plan-Generierung testen
 const testPlanGeneration = async () => {
+  if (!botActive.value) {
+    alert('Der Bot ist nicht erreichbar. Plan-Generierung kann nicht getestet werden.');
+    return;
+  }
+  
   try {
     const response = await fetch('/api/bot/test-plan', { method: 'POST' });
     const data = await response.json();
     if (data.success) {
       alert('Plan-Generierung wurde erfolgreich getestet');
+      await fetchBotStatus(); // Status aktualisieren
     } else {
       alert('Fehler beim Testen der Plan-Generierung: ' + data.error);
     }
@@ -188,12 +269,19 @@ const testPlanGeneration = async () => {
   }
 };
 
+// Änderungserkennung testen
 const testUpdate = async () => {
+  if (!botActive.value) {
+    alert('Der Bot ist nicht erreichbar. Änderungserkennung kann nicht getestet werden.');
+    return;
+  }
+  
   try {
     const response = await fetch('/api/bot/test-update', { method: 'POST' });
     const data = await response.json();
     if (data.success) {
       alert('Änderungserkennung wurde erfolgreich getestet');
+      await fetchBotStatus(); // Status aktualisieren
     } else {
       alert('Fehler beim Testen der Änderungserkennung: ' + data.error);
     }
@@ -202,21 +290,26 @@ const testUpdate = async () => {
   }
 };
 
-// Daten beim Laden der Seite abrufen
+// Seite initialisieren
 onMounted(async () => {
-  try {
-    const response = await fetch('/api/bot/status');
-    const data = await response.json();
-    if (data.success) {
-      botActive.value = data.active;
-      maintenanceMode.value = data.maintenanceMode;
-      lastUpdateTime.value = data.lastUpdate;
-      if (data.recentActivities) {
-        recentActivities.value = data.recentActivities;
-      }
-    }
-  } catch (error) {
-    console.error('Fehler beim Laden des Bot-Status:', error);
+  // Status beim ersten Laden abrufen
+  await fetchBotStatus();
+  
+  // Periodischen Status-Refresh starten (alle 30 Sekunden)
+  refreshInterval.value = setInterval(fetchBotStatus, 30000);
+});
+
+// Cleanup wenn Komponente zerstört wird
+onUnmounted(() => {
+  if (refreshInterval.value) {
+    clearInterval(refreshInterval.value);
   }
 });
 </script>
+
+<style scoped>
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+</style>

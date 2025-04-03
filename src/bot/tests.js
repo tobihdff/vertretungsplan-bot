@@ -1,5 +1,5 @@
 const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
-const { NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, DEBUG } = require('../config');
+const { NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, DEBUG, cache } = require('../config');
 const { getTargetDate, formatDate, parseGermanDate, formatReadableDate } = require('../utils/dateUtils');
 const { hasDataChanged, findChanges } = require('../utils/dataUtils');
 const { fetchData } = require('../services/apiService');

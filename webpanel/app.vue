@@ -23,8 +23,10 @@
 
         <div class="mt-8 text-white text-sm">
           <div class="flex items-center mb-2">
-            <div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
-            <span>Bot Status: Online</span>
+            <div class="w-3 h-3 rounded-full" 
+                 :class="botActive ? 'bg-green-500' : 'bg-red-500'"
+                 :title="botActive ? 'Bot ist online' : 'Bot ist offline'"></div>
+            <span class="ml-2">Bot Status: {{ botActive ? 'Online' : 'Offline' }}</span>
           </div>
           <div class="text-xs opacity-70">Version 1.0.0</div>
         </div>
@@ -41,10 +43,34 @@
 <script setup>
 // Darkmode Composable importieren
 const { isDarkMode, toggleDarkMode, init } = useDarkMode();
+const botActive = ref(false);
 
-// Darkmode initialisieren
+// Bot Status regelmäßig prüfen
+const checkBotStatus = async () => {
+  try {
+    const response = await fetch('/api/bot/status');
+    const data = await response.json();
+    if (data.success) {
+      botActive.value = data.active;
+    }
+  } catch (error) {
+    console.error('Fehler beim Prüfen des Bot-Status:', error);
+    botActive.value = false; // Bei Fehler annehmen, dass Bot offline ist
+  }
+};
+
+// Bot-Status initial und dann alle 10 Sekunden prüfen
 onMounted(() => {
-  init();
+  init(); // Darkmode initialisieren
+  checkBotStatus(); // Initial prüfen
+  
+  // Regelmäßiges Prüfen einrichten
+  const statusInterval = setInterval(checkBotStatus, 10000);
+  
+  // Cleanup beim Unmount
+  onUnmounted(() => {
+    clearInterval(statusInterval);
+  });
 });
 </script>
 

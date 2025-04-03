@@ -6,6 +6,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { spawn } from 'node:child_process';
+import http from 'node:http';
+import { getQuery, readBody } from 'h3';
 
 // Helper für asynchrones Lesen/Schreiben von Dateien
 const readFile = promisify(fs.readFile);
@@ -147,6 +149,101 @@ const writeSettings = async (settings: any) => {
   }
 };
 
+// Führt API-Anfrage an den Bot durch
+const callBotAPI = async (endpoint: string, method: string = 'GET', body?: any): Promise<any> => {
+  const apiPort = process.env.WEB_API_PORT || 3001;
+  const apiUrl = `http://localhost:${apiPort}${endpoint}`;
+  
+  return new Promise((resolve, reject) => {
+    const options = {
+      method,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    };
+
+    const req = http.request(apiUrl, options, (res) => {
+      if (res.statusCode !== 200) {
+        return reject(new Error(`Status Code: ${res.statusCode}`));
+      }
+      
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        try {
+          const parsedData = JSON.parse(data);
+          resolve(parsedData);
+        } catch (error) {
+          reject(new Error('Invalid JSON response'));
+        }
+      });
+    });
+    
+    req.on('error', (error) => {
+      reject(error);
+    });
+    
+    if (body) {
+      req.write(JSON.stringify(body));
+    }
+    
+    req.end();
+  });
+};
+
+// Prüft den tatsächlichen Bot-Status, indem die API-Verbindung getestet wird
+const checkBotStatus = async (): Promise<any> => {
+  try {
+    // Versuche die Statusabfrage an den Bot zu senden
+    const botStatus = await callBotAPI('/api/bot/status');
+    
+    // Wenn wir hier sind, ist der Bot erreichbar
+    return {
+      active: true,
+      maintenanceMode: botStatus.maintenanceMode || false,
+      lastUpdate: botStatus.lastUpdate || new Date().toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      recentActivities: botStatus.recentActivities || [{
+        type: 'status',
+        message: 'Verbindung zum Bot hergestellt',
+        timestamp: new Date().toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      }]
+    };
+  } catch (error) {
+    // Bot ist nicht erreichbar
+    return {
+      active: false,
+      maintenanceMode: false,
+      lastUpdate: 'Unbekannt',
+      recentActivities: [{
+        type: 'status',
+        message: 'Bot ist nicht erreichbar',
+        timestamp: new Date().toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      }]
+    };
+  }
+};
+
 // Endpunkt: Bot-Status abrufen
 export default defineEventHandler(async (event) => {
   const method = event.method;
@@ -154,24 +251,25 @@ export default defineEventHandler(async (event) => {
   
   // GET /api/bot/status - Bot-Status abrufen
   if (method === 'GET' && path === '/api/bot/status') {
-    // Hier würde normalerweise die Kommunikation mit dem Bot über IPC oder eine Datenbank stattfinden
-    // Für dieses Beispiel geben wir statische Daten zurück
-    return {
-      success: true,
-      active: true, // Annahme: Der Bot ist aktiv
-      maintenanceMode: false, // Annahme: Wartungsmodus ist deaktiviert
-      lastUpdate: new Date().toLocaleDateString('de-DE', { 
-        day: '2-digit', 
-        month: '2-digit', 
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      }),
-      recentActivities: [
-        { type: 'update', message: 'Vertretungsplan aktualisiert', timestamp: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) },
-        { type: 'status', message: 'Bot gestartet', timestamp: new Date(Date.now() - 3600000).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }
-      ]
-    };
+    try {
+      // Tatsächlichen Bot-Status prüfen
+      const botStatus = await checkBotStatus();
+      
+      return {
+        success: true,
+        ...botStatus
+      };
+    } catch (error) {
+      return {
+        success: true,
+        active: false,
+        maintenanceMode: false,
+        lastUpdate: 'Unbekannt',
+        recentActivities: [
+          { type: 'error', message: 'Fehler beim Abrufen des Bot-Status', timestamp: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }
+        ]
+      };
+    }
   }
   
   // GET /api/bot/settings - Bot-Einstellungen abrufen
@@ -218,8 +316,19 @@ export default defineEventHandler(async (event) => {
   // POST /api/bot/maintenance - Wartungsmodus umschalten
   if (method === 'POST' && path === '/api/bot/maintenance') {
     try {
-      // Hier würde normalerweise die Kommunikation mit dem Bot über IPC oder eine Datenbank stattfinden
-      // Für dieses Beispiel geben wir Erfolg zurück, ohne tatsächliche Änderungen vorzunehmen
+      const body = await readBody(event);
+      const { enable } = body;
+      
+      // Versuchen, den Wartungsmodus über die Bot-API umzuschalten
+      const botStatus = await checkBotStatus();
+      if (!botStatus.active) {
+        return { success: false, error: 'Bot ist nicht erreichbar' };
+      }
+      
+      // API-Endpunkt für Wartungsmodus aufrufen
+      const endpoint = enable ? '/api/bot/maintenance/enable' : '/api/bot/maintenance/disable';
+      await callBotAPI(endpoint, 'POST');
+      
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message || 'Wartungsmodus konnte nicht umgeschaltet werden' };
@@ -229,8 +338,15 @@ export default defineEventHandler(async (event) => {
   // POST /api/bot/force-update - Update erzwingen
   if (method === 'POST' && path === '/api/bot/force-update') {
     try {
-      // Hier würde normalerweise die Kommunikation mit dem Bot über IPC oder eine Datenbank stattfinden
-      // Für dieses Beispiel geben wir Erfolg zurück, ohne tatsächliche Änderungen vorzunehmen
+      // Prüfen, ob der Bot läuft
+      const botStatus = await checkBotStatus();
+      if (!botStatus.active) {
+        return { success: false, error: 'Bot ist nicht erreichbar' };
+      }
+      
+      // API-Endpunkt für Force-Update aufrufen
+      await callBotAPI('/api/bot/update/force', 'POST');
+      
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message || 'Update konnte nicht erzwungen werden' };
@@ -240,7 +356,15 @@ export default defineEventHandler(async (event) => {
   // POST /api/bot/test-notification - Benachrichtigung testen
   if (method === 'POST' && path === '/api/bot/test-notification') {
     try {
-      // Hier würde normalerweise die Kommunikation mit dem Bot über IPC oder eine Datenbank stattfinden
+      // Prüfen, ob der Bot läuft
+      const botStatus = await checkBotStatus();
+      if (!botStatus.active) {
+        return { success: false, error: 'Bot ist nicht erreichbar' };
+      }
+      
+      // API-Endpunkt für Test-Benachrichtigung aufrufen
+      await callBotAPI('/api/bot/test/notification', 'POST');
+      
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message || 'Benachrichtigung konnte nicht getestet werden' };
@@ -250,7 +374,15 @@ export default defineEventHandler(async (event) => {
   // POST /api/bot/test-plan - Plan-Generierung testen
   if (method === 'POST' && path === '/api/bot/test-plan') {
     try {
-      // Hier würde normalerweise die Kommunikation mit dem Bot über IPC oder eine Datenbank stattfinden
+      // Prüfen, ob der Bot läuft
+      const botStatus = await checkBotStatus();
+      if (!botStatus.active) {
+        return { success: false, error: 'Bot ist nicht erreichbar' };
+      }
+      
+      // API-Endpunkt für Test-Plan-Generierung aufrufen
+      await callBotAPI('/api/bot/test/plan', 'POST');
+      
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message || 'Plan-Generierung konnte nicht getestet werden' };
@@ -260,7 +392,15 @@ export default defineEventHandler(async (event) => {
   // POST /api/bot/test-update - Änderungserkennung testen
   if (method === 'POST' && path === '/api/bot/test-update') {
     try {
-      // Hier würde normalerweise die Kommunikation mit dem Bot über IPC oder eine Datenbank stattfinden
+      // Prüfen, ob der Bot läuft
+      const botStatus = await checkBotStatus();
+      if (!botStatus.active) {
+        return { success: false, error: 'Bot ist nicht erreichbar' };
+      }
+      
+      // API-Endpunkt für Test-Änderungserkennung aufrufen
+      await callBotAPI('/api/bot/test/update', 'POST');
+      
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message || 'Änderungserkennung konnte nicht getestet werden' };
@@ -270,7 +410,18 @@ export default defineEventHandler(async (event) => {
   // POST /api/bot/clear-channel - Channel leeren
   if (method === 'POST' && path === '/api/bot/clear-channel') {
     try {
-      // Hier würde normalerweise die Kommunikation mit dem Bot über IPC oder eine Datenbank stattfinden
+      // Prüfen, ob der Bot läuft
+      const botStatus = await checkBotStatus();
+      if (!botStatus.active) {
+        return { success: false, error: 'Bot ist nicht erreichbar' };
+      }
+      
+      const body = await readBody(event);
+      const { channelId } = body;
+      
+      // API-Endpunkt für Channel-Leeren aufrufen
+      await callBotAPI('/api/bot/channel/clear', 'POST', { channelId });
+      
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message || 'Channel konnte nicht geleert werden' };
@@ -280,11 +431,26 @@ export default defineEventHandler(async (event) => {
   // GET /api/bot/logs - Logs abrufen
   if (method === 'GET' && path === '/api/bot/logs') {
     try {
-      // In einer echten Implementierung würden wir hier die Logs aus einer Datei lesen
-      // Für dieses Beispiel geben wir einige Mock-Logs zurück
       const query = getQuery(event);
       const type = query.type as string || 'all';
       
+      // Prüfen, ob Bot läuft und Logs darüber abrufen
+      const botStatus = await checkBotStatus();
+      
+      // Wenn Bot läuft, versuche echte Logs abzurufen
+      if (botStatus.active) {
+        try {
+          const logsResponse = await callBotAPI(`/api/bot/logs?type=${type}`, 'GET');
+          if (logsResponse && logsResponse.logs) {
+            return { success: true, logs: logsResponse.logs };
+          }
+        } catch (err) {
+          console.error('Fehler beim Abrufen der Bot-Logs:', err);
+          // Bei Fehler fallen wir auf Mock-Logs zurück
+        }
+      }
+      
+      // Fallback auf Mock-Logs
       const mockLogs = [
         { timestamp: '03.04.2025 10:15:00', level: 'info', message: 'Bot gestartet' },
         { timestamp: '03.04.2025 10:15:10', level: 'debug', message: 'Vertretungsplan wird abgerufen', details: 'URL: https://api.example.com/vertretungsplan' },
@@ -299,7 +465,11 @@ export default defineEventHandler(async (event) => {
         filteredLogs = mockLogs.filter(log => log.level === type);
       }
       
-      return { success: true, logs: filteredLogs };
+      return { 
+        success: true, 
+        logs: filteredLogs, 
+        note: botStatus.active ? 'Echte Logs konnten nicht abgerufen werden' : 'Bot ist nicht erreichbar, verwende Mock-Logs'
+      };
     } catch (error: any) {
       return { success: false, error: error.message || 'Logs konnten nicht geladen werden' };
     }
@@ -308,8 +478,19 @@ export default defineEventHandler(async (event) => {
   // DELETE /api/bot/logs - Logs löschen
   if (method === 'DELETE' && path === '/api/bot/logs') {
     try {
-      // In einer echten Implementierung würden wir hier die Logs löschen
-      return { success: true };
+      // Prüfen, ob der Bot läuft
+      const botStatus = await checkBotStatus();
+      if (!botStatus.active) {
+        return { success: false, error: 'Bot ist nicht erreichbar' };
+      }
+      
+      // Bot-API für Log-Löschung aufrufen
+      try {
+        await callBotAPI('/api/bot/logs', 'DELETE');
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: 'Logs konnten nicht gelöscht werden' };
+      }
     } catch (error: any) {
       return { success: false, error: error.message || 'Logs konnten nicht gelöscht werden' };
     }
@@ -319,8 +500,21 @@ export default defineEventHandler(async (event) => {
   if (method === 'POST' && path === '/api/bot/log-level') {
     try {
       const body = await readBody(event);
-      // In einer echten Implementierung würden wir hier das Log-Level setzen
-      return { success: true };
+      const { level } = body;
+      
+      // Prüfen, ob der Bot läuft
+      const botStatus = await checkBotStatus();
+      if (!botStatus.active) {
+        return { success: false, error: 'Bot ist nicht erreichbar' };
+      }
+      
+      // Bot-API für Log-Level-Änderung aufrufen
+      try {
+        await callBotAPI('/api/bot/log-level', 'POST', { level });
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: 'Log-Level konnte nicht gesetzt werden' };
+      }
     } catch (error: any) {
       return { success: false, error: error.message || 'Log-Level konnte nicht gesetzt werden' };
     }
