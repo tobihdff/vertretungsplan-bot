@@ -110,6 +110,22 @@ Der Bot verfügt über einen Wartungsmodus, der für administrative Tätigkeiten
 - Bot-Status ändert sich auf "Wartungsmodus" und "Nicht stören"
 - Alle automatischen Funktionen werden pausiert, bis der Wartungsmodus deaktiviert wird
 
+## 🖥️ Webpanel
+
+Der Bot verfügt über ein modernes Webpanel zur Verwaltung und Überwachung:
+
+- 📊 Dashboard zur Überwachung des Bot-Status und aktueller Vertretungspläne
+- ⚙️ Einstellungsseite zur Konfiguration des Bots ohne .env-Datei bearbeiten zu müssen
+- 📝 Log-Ansicht zur Überwachung der Bot-Aktivitäten und Fehlerdiagnose
+- 🌙 Dark Mode / Light Mode für angenehmes Arbeiten bei Tag und Nacht
+
+### Webpanel starten
+
+1. Navigiere zum Verzeichnis `webpanel`
+2. Führe `npm install` aus, um alle Abhängigkeiten zu installieren
+3. Starte das Webpanel mit `npm run dev` für die Entwicklung oder `npm run build && npm run start` für die Produktion
+4. Öffne im Browser `http://localhost:3000`
+
 ## 🔮 Geplante Features
 
 - 📚 Klassenbuch-Integration: Anzeige von Klassenbucheinträgen für bestimmte Tage
