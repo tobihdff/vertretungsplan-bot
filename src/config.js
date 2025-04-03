@@ -73,7 +73,8 @@ const cache = {
     lastCheck: null,            // Wann wurde zuletzt auf Änderungen geprüft
     initialStatusSet: false,    // Flag ob der initiale Status gesetzt wurde
     generalChanges: {},         // Speichert Zähler für allgemeine Änderungen pro Datum
-    generalChangesHash: {}      // Speichert Hash der letzten allgemeinen Änderungen pro Datum
+    generalChangesHash: {},      // Speichert Hash der letzten allgemeinen Änderungen pro Datum
+    maintenanceMode: false      // Flag für den Wartungsmodus
 };
 
 // Bot-Status Konfiguration
@@ -85,6 +86,10 @@ const BOT_STATUS = {
     ACTIVITY: {
         name: 'Vertretungsplan',
         type: 'WATCHING' // Discord.js ActivityType.Watching
+    },
+    MAINTENANCE: {
+        name: 'Wartungsmodus',
+        type: 'PLAYING' // Discord.js ActivityType.Playing
     }
 };
 

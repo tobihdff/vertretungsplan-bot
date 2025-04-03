@@ -15,8 +15,23 @@ async function updateBotStatus(client) {
             return;
         }
         
-        // Status-Überprüfung deaktiviert - immer verfügbar
-        debugLog('Bot-Status-Update deaktiviert - setze Standard-Online-Status');
+        // Im Wartungsmodus DND-Status setzen
+        if (cache.maintenanceMode) {
+            debugLog('Wartungsmodus aktiv - setze DND-Status');
+            
+            await client.user.setPresence({
+                activities: [{
+                    name: BOT_STATUS.MAINTENANCE.name,
+                    type: ActivityType.Playing
+                }],
+                status: BOT_STATUS.PRESENCE.DND
+            });
+            
+            return;
+        }
+        
+        // Standard-Status setzen wenn kein Wartungsmodus
+        debugLog('Bot-Status-Update - setze Standard-Online-Status');
         
         // Setze Online-Status mit standard Aktivität
         await client.user.setPresence({
@@ -39,10 +54,9 @@ async function updateBotStatus(client) {
 
 /**
  * Setzt den initialen Bot-Status beim Start
- * (Temporär vereinfacht)
  */
 async function setInitialBotStatus(client) {
-    debugLog('Setze initialen Bot-Status (deaktiviert - nur Online-Status)');
+    debugLog('Setze initialen Bot-Status');
     
     // Sicherstellen, dass der Client bereit ist
     if (!client || !client.user) {
@@ -50,7 +64,29 @@ async function setInitialBotStatus(client) {
         return;
     }
     
-    // Setze einfach Online-Status
+    // Prüfe auf aktiven Wartungsmodus
+    if (cache.maintenanceMode) {
+        debugLog('Wartungsmodus aktiv - setze DND-Status');
+        
+        try {
+            await client.user.setPresence({
+                activities: [{
+                    name: BOT_STATUS.MAINTENANCE.name,
+                    type: ActivityType.Playing
+                }],
+                status: BOT_STATUS.PRESENCE.DND
+            });
+            
+            debugLog('Initialer Bot-Status gesetzt (Wartungsmodus)');
+            cache.initialStatusSet = true;
+            return;
+        } catch (err) {
+            console.error('Fehler beim Setzen des Wartungsmodus-Status:', err);
+            debugLog(`Fehler beim Wartungsmodus-Status: ${err.message}`);
+        }
+    }
+    
+    // Setze Standard Online-Status
     try {
         await client.user.setPresence({
             activities: [{
@@ -83,8 +119,50 @@ function startApiMonitoring(client, retryInterval) {
     }
 }
 
+/**
+ * Aktiviert den Wartungsmodus
+ */
+async function enableMaintenanceMode(client) {
+    debugLog('Aktiviere Wartungsmodus');
+    
+    // Wartungsmodus-Flag setzen
+    cache.maintenanceMode = true;
+    
+    // Bot-Status aktualisieren
+    await updateBotStatus(client);
+    
+    debugLog('Wartungsmodus wurde aktiviert');
+    return true;
+}
+
+/**
+ * Deaktiviert den Wartungsmodus
+ */
+async function disableMaintenanceMode(client) {
+    debugLog('Deaktiviere Wartungsmodus');
+    
+    // Wartungsmodus-Flag zurücksetzen
+    cache.maintenanceMode = false;
+    
+    // Normalen Bot-Status wiederherstellen
+    await updateBotStatus(client);
+    
+    debugLog('Wartungsmodus wurde deaktiviert');
+    return true;
+}
+
+/**
+ * Prüft, ob der Wartungsmodus aktiv ist
+ */
+function isMaintenanceModeActive() {
+    return !!cache.maintenanceMode;
+}
+
 module.exports = {
     updateBotStatus,
     startApiMonitoring,
-    setInitialBotStatus
+    setInitialBotStatus,
+    enableMaintenanceMode,
+    disableMaintenanceMode,
+    isMaintenanceModeActive
 };

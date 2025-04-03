@@ -2,7 +2,7 @@ const { registerCommands } = require('./commands');
 const { isAuthorized, testPlanGeneration, testUpdateDetection, testNotification } = require('./tests');
 const { updatePlan, checkPlanChanges } = require('../tasks/updateTask');
 const { AUTHORIZED_USERS, INTERVALS, PLAN_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEBUG } = require('../config');
-const { updateBotStatus, startApiMonitoring, setInitialBotStatus } = require('../utils/statusUtils');
+const { updateBotStatus, startApiMonitoring, setInitialBotStatus, enableMaintenanceMode, disableMaintenanceMode, isMaintenanceModeActive } = require('../utils/statusUtils');
 const { debugLog } = require('../utils/debugUtils');
 
 /**
@@ -126,17 +126,37 @@ function setupHandlers(client) {
             }
         }
         
-        // Initialen Update durchführen
-        debugLog('Führe initialen Vertretungsplan-Update durch');
-        await updatePlan(client);
+        // Initialen Update durchführen, wenn kein Wartungsmodus aktiv ist
+        if (!isMaintenanceModeActive()) {
+            debugLog('Führe initialen Vertretungsplan-Update durch');
+            await updatePlan(client);
+        } else {
+            console.log('Wartungsmodus aktiv - kein initiales Update');
+            debugLog('Wartungsmodus aktiv - überspringe initialen Vertretungsplan-Update');
+        }
         
         console.log(`Update-Intervall: ${INTERVALS.UPDATE_INTERVAL / 60000} Minuten`);
         console.log(`Prüf-Intervall: ${INTERVALS.CHECK_INTERVAL / 60000} Minuten`);
         debugLog(`Konfigurations-Details: Update alle ${INTERVALS.UPDATE_INTERVAL / 60000}min, Prüfung alle ${INTERVALS.CHECK_INTERVAL / 60000}min`);
         
         // Separate Intervalle für Vollaktualisierung, Änderungsprüfung
-        setInterval(() => updatePlan(client), INTERVALS.UPDATE_INTERVAL);
-        setInterval(() => checkPlanChanges(client), INTERVALS.CHECK_INTERVAL);
+        setInterval(async () => {
+            // Überprüfe, ob Wartungsmodus aktiv ist
+            if (!isMaintenanceModeActive()) {
+                await updatePlan(client);
+            } else {
+                debugLog('Wartungsmodus aktiv - überspringe geplantes Update');
+            }
+        }, INTERVALS.UPDATE_INTERVAL);
+        
+        setInterval(async () => {
+            // Überprüfe, ob Wartungsmodus aktiv ist
+            if (!isMaintenanceModeActive()) {
+                await checkPlanChanges(client);
+            } else {
+                debugLog('Wartungsmodus aktiv - überspringe geplante Änderungsprüfung');
+            }
+        }, INTERVALS.CHECK_INTERVAL);
         
         // Status-Prüfung deaktiviert
         /*
@@ -173,8 +193,8 @@ function setupHandlers(client) {
                 });
             }
             
-            // Prüfe Berechtigung für normale Befehle
-            if (interaction.commandName !== 'setup-role' && !isAuthorized(interaction.user.id, AUTHORIZED_USERS)) {
+            // Prüfe Berechtigung für normale Befehle (Ausnahme maintenance & setup-role)
+            if (!['maintenance', 'setup-role'].includes(interaction.commandName) && !isAuthorized(interaction.user.id, AUTHORIZED_USERS)) {
                 debugLog(`Benutzer ${interaction.user.tag} ist nicht berechtigt, den Befehl ${interaction.commandName} auszuführen`);
                 return interaction.reply({ 
                     content: '❌ Du bist nicht berechtigt, diesen Befehl auszuführen.', 
@@ -184,26 +204,47 @@ function setupHandlers(client) {
             
             switch (commandName) {
                 case 'test-plan':
+                    // Defer mit ephemeral true bereits in testPlanGeneration
+                    await interaction.deferReply({ ephemeral: true });
                     await testPlanGeneration(interaction);
                     break;
                     
                 case 'test-update':
                     const date = interaction.options.getString('datum');
+                    // Defer mit ephemeral true bereits in testUpdateDetection
+                    await interaction.deferReply({ ephemeral: true });
                     await testUpdateDetection(interaction, date);
                     break;
                     
                 case 'test-notification':
+                    // Defer mit ephemeral true bereits in testNotification
+                    await interaction.deferReply({ ephemeral: true });
                     await testNotification(interaction, client);
                     break;
                     
                 case 'force-update':
-                    await interaction.reply('🔄 Erzwinge Update des Vertretungsplans...');
+                    // Überprüfe ob Wartungsmodus aktiv ist
+                    if (isMaintenanceModeActive()) {
+                        await interaction.reply({
+                            content: '⚠️ Vertretungsplan-Update nicht möglich: Der Bot befindet sich im Wartungsmodus.',
+                            ephemeral: true
+                        });
+                        break;
+                    }
+                    
+                    await interaction.reply({
+                        content: '🔄 Erzwinge Update des Vertretungsplans...',
+                        ephemeral: true
+                    });
                     await updatePlan(client);
                     await interaction.editReply('✅ Update des Vertretungsplans abgeschlossen!');
                     break;
                     
                 case 'clear-channel':
-                    await interaction.reply('🧹 Versuche alle Nachrichten im Vertretungsplan-Channel zu löschen...');
+                    await interaction.reply({
+                        content: '🧹 Versuche alle Nachrichten im Vertretungsplan-Channel zu löschen...',
+                        ephemeral: true
+                    });
                     const planChannel = client.channels.cache.get(PLAN_CHANNEL_ID);
                     if (planChannel) {
                         const success = await clearChannel(planChannel);
@@ -226,7 +267,7 @@ function setupHandlers(client) {
                         });
                     }
                     
-                    await interaction.deferReply();
+                    await interaction.deferReply({ ephemeral: true });
                     
                     try {
                         // Prüfe, ob Rolle existiert
@@ -247,6 +288,37 @@ function setupHandlers(client) {
                     } catch (error) {
                         console.error('Fehler beim Rollen-Setup:', error);
                         await interaction.editReply('❌ Es ist ein Fehler beim Erstellen/Prüfen der Rolle aufgetreten. Bitte prüfe die Bot-Berechtigungen.');
+                    }
+                    break;
+                    
+                case 'maintenance':
+                    // Administratorrechte prüfen
+                    if (!interaction.member.permissions.has('Administrator')) {
+                        debugLog(`Benutzer ${interaction.user.tag} hat keine Administrator-Rechte für den Wartungsmodus`);
+                        return interaction.reply({ 
+                            content: '❌ Du benötigst Administrator-Rechte, um den Wartungsmodus zu steuern.', 
+                            ephemeral: true 
+                        });
+                    }
+                    
+                    try {
+                        // Prüfe aktuellen Zustand und wechsle entsprechend
+                        await interaction.deferReply({ ephemeral: true });
+                        
+                        if (isMaintenanceModeActive()) {
+                            // Wenn aktiv, dann deaktivieren
+                            await disableMaintenanceMode(client);
+                            await interaction.editReply(`✅ Wartungsmodus deaktiviert! Der Bot nimmt seine normalen Operationen wieder auf.`);
+                            console.log(`Wartungsmodus deaktiviert von ${interaction.user.tag} (${interaction.user.id})`);
+                        } else {
+                            // Wenn nicht aktiv, dann aktivieren
+                            await enableMaintenanceMode(client);
+                            await interaction.editReply(`✅ Wartungsmodus aktiviert! Der Bot verarbeitet keine automatischen Updates mehr und hat seinen Status auf "Wartungsmodus" geändert.`);
+                            console.log(`Wartungsmodus aktiviert von ${interaction.user.tag} (${interaction.user.id})`);
+                        }
+                    } catch (error) {
+                        console.error('Fehler beim Ändern des Wartungsmodus:', error);
+                        await interaction.editReply('❌ Es ist ein Fehler beim Ändern des Wartungsmodus aufgetreten.');
                     }
                     break;
             }

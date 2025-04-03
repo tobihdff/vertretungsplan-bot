@@ -4,7 +4,7 @@ const { getTargetDate, formatDate, formatReadableDate } = require('../utils/date
 const { hasDataChanged, findChanges } = require('../utils/dataUtils');
 const { fetchData, ERROR_THRESHOLD } = require('../services/apiService');
 const { createPlanImage } = require('../services/imageService');
-const { updateBotStatus } = require('../utils/statusUtils');
+const { updateBotStatus, isMaintenanceModeActive } = require('../utils/statusUtils');
 const { debugLog } = require('../utils/debugUtils');
 const crypto = require('crypto');
 
@@ -49,6 +49,12 @@ async function sendTempPingNotification(channel, roleId, message) {
  * Überprüft auf Änderungen im Vertretungsplan ohne eine neue Nachricht zu senden
  */
 async function checkPlanChanges(client) {
+    // Prüfe, ob der Wartungsmodus aktiv ist
+    if (isMaintenanceModeActive()) {
+        debugLog('Wartungsmodus aktiv - überspringe Änderungsprüfung');
+        return;
+    }
+    
     try {
         debugLog('Starte Überprüfung auf Änderungen im Vertretungsplan');
         
@@ -305,6 +311,12 @@ async function cleanupOldMessages(channel) {
  * Aktualisiert den Vertretungsplan vollständig (Bild und ggf. Benachrichtigung)
  */
 async function updatePlan(client) {
+    // Prüfe, ob der Wartungsmodus aktiv ist
+    if (isMaintenanceModeActive()) {
+        debugLog('Wartungsmodus aktiv - überspringe vollständiges Update');
+        return;
+    }
+    
     try {
         debugLog('Starte vollständige Aktualisierung des Vertretungsplans');
         
@@ -496,5 +508,5 @@ module.exports = {
     updatePlan,
     checkPlanChanges,
     sendTempPingNotification,
-    cleanupOldMessages  // Neue Funktion exportieren
+    cleanupOldMessages
 };
