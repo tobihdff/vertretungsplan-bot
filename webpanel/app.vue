@@ -37,6 +37,9 @@
         <NuxtPage />
       </main>
     </div>
+    
+    <!-- Toast Notifications -->
+    <Toast />
   </div>
 </template>
 
@@ -44,6 +47,7 @@
 // Darkmode Composable importieren
 const { isDarkMode, toggleDarkMode, init } = useDarkMode();
 const botActive = ref(false);
+const { showToast } = useToast();
 
 // Bot Status regelmäßig prüfen
 const checkBotStatus = async () => {
@@ -56,6 +60,7 @@ const checkBotStatus = async () => {
   } catch (error) {
     console.error('Fehler beim Prüfen des Bot-Status:', error);
     botActive.value = false; // Bei Fehler annehmen, dass Bot offline ist
+    showToast('Fehler beim Prüfen des Bot-Status', 'error');
   }
 };
 

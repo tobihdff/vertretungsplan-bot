@@ -106,6 +106,7 @@ const lastUpdateTime = ref('Unbekannt');
 const recentActivities = ref([]);
 const refreshInterval = ref(null);
 const isLoading = ref(true);
+const { showToast } = useToast();
 
 // Berechnete Eigenschaft für Statusmeldung
 const statusMessage = computed(() => {
@@ -153,7 +154,7 @@ const refreshStatus = async () => {
 // Update erzwingen
 const forceUpdate = async () => {
   if (!botActive.value) {
-    alert('Der Bot ist nicht erreichbar. Update kann nicht durchgeführt werden.');
+    showToast('Der Bot ist nicht erreichbar. Update kann nicht durchgeführt werden.', 'error');
     return;
   }
   
@@ -161,14 +162,14 @@ const forceUpdate = async () => {
     const response = await fetch('/api/bot/force-update', { method: 'POST' });
     const data = await response.json();
     if (data.success) {
-      alert('Vertretungsplan-Update wurde erfolgreich durchgeführt');
+      showToast('Vertretungsplan-Update wurde erfolgreich durchgeführt', 'success');
       // Status nach Update aktualisieren
       await fetchBotStatus();
     } else {
-      alert('Fehler beim Aktualisieren des Vertretungsplans: ' + data.error);
+      showToast('Fehler beim Aktualisieren des Vertretungsplans: ' + data.error, 'error');
     }
   } catch (error) {
-    alert('Fehler beim Aktualisieren des Vertretungsplans: ' + error.message);
+    showToast('Fehler beim Aktualisieren des Vertretungsplans: ' + error.message, 'error');
   }
 };
 
@@ -184,16 +185,19 @@ const toggleMaintenanceMode = async () => {
     const response = await fetch('/api/bot/maintenance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enable: newState }) // Korrekter Parameter-Name
+      body: JSON.stringify({ enabled: newState }) // Changed from 'enable' to 'enabled' for consistency
     });
     const data = await response.json();
     if (data.success) {
       await fetchBotStatus(); // Aktualisieren des Status nach Änderung
       alert(`Wartungsmodus wurde ${newState ? 'aktiviert' : 'deaktiviert'}`);
+      showToast(`Wartungsmodus ${newState ? 'aktiviert' : 'deaktiviert'}`, newState ? 'success' : 'info');
     } else {
+      showToast('Fehler beim Ändern des Wartungsmodus: ' + data.error, 'error');
       alert('Fehler beim Ändern des Wartungsmodus: ' + data.error);
     }
   } catch (error) {
+    showToast('Fehler beim Ändern des Wartungsmodus: ' + error.message, 'error');
     alert('Fehler beim Ändern des Wartungsmodus: ' + error.message);
   }
 };

@@ -84,7 +84,7 @@ const readSettings = async () => {
       checkInterval: parseInt(settings.CHECK_INTERVAL_MINUTES as string || '20'),
       apiUrl: settings.API_URL_PROD as string || '',
       apiKey: settings.api_key as string || '',
-      debugMode: settings.DEBUG === 'true'
+      debugMode: settings.DEBUG_MODE === 'true'
     };
   } catch (error) {
     console.error('Fehler beim Lesen der Einstellungen:', error);
@@ -134,8 +134,8 @@ const writeSettings = async (settings: any) => {
       if (trimmedKey === 'api_key' && settings.apiKey !== undefined) {
         return `api_key=${settings.apiKey}`;
       }
-      if (trimmedKey === 'DEBUG' && settings.debugMode !== undefined) {
-        return `DEBUG=${settings.debugMode}`;
+      if (trimmedKey === 'DEBUG_MODE' && settings.debugMode !== undefined) {
+        return `DEBUG_MODE=${settings.debugMode}`;
       }
       
       return line;

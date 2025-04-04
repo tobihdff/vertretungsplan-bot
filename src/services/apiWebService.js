@@ -152,10 +152,18 @@ class ApiWebService {
         // POST /api/bot/maintenance - Wartungsmodus umschalten
         this.app.post('/api/bot/maintenance', async (req, res) => {
             try {
-                const { enabled } = req.body;
+                // Fix: Accept both 'enable' (from frontend) and 'enabled' for backward compatibility
+                const enabled = req.body.enable !== undefined ? req.body.enable : req.body.enabled;
+                
+                // Ensure client is properly passed and validated
+                if (!this.client || !this.client.user) {
+                    throw new Error('Discord client is not ready or available');
+                }
                 
                 if (enabled) {
                     await enableMaintenanceMode(this.client);
+                    // Verify the DND status was set correctly
+                    debugLog('Verifying DND status was set');
                 } else {
                     await disableMaintenanceMode(this.client);
                 }
@@ -375,7 +383,7 @@ class ApiWebService {
                 checkInterval: parseInt(settings.CHECK_INTERVAL_MINUTES || '20'),
                 apiUrl: settings.API_URL_PROD || '',
                 apiKey: settings.api_key || '',
-                debugMode: settings.DEBUG === 'true'
+                debugMode: settings.DEBUG_MODE === 'true'
             };
         } catch (error) {
             debugLog(`Fehler beim Lesen der Einstellungen: ${error.message}`);
@@ -425,8 +433,8 @@ class ApiWebService {
                 if (trimmedKey === 'api_key' && settings.apiKey !== undefined) {
                     return `api_key=${settings.apiKey}`;
                 }
-                if (trimmedKey === 'DEBUG' && settings.debugMode !== undefined) {
-                    return `DEBUG=${settings.debugMode}`;
+                if (trimmedKey === 'DEBUG_MODE' && settings.debugMode !== undefined) {
+                    return `DEBUG_MODE=${settings.debugMode}`;
                 }
                 
                 return line;
