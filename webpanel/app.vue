@@ -185,7 +185,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useDarkMode } from './composables/useDarkMode';
 import useToast from './composables/useToast';
 

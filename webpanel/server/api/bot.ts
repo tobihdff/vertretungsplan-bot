@@ -17,7 +17,7 @@ const writeFile = promisify(fs.writeFile);
 // Pfad zur .env-Datei im Hauptverzeichnis bestimmen
 const rootDir = path.resolve(process.cwd(), '..');
 const envFilePath = path.resolve(rootDir, '.env');
-const _logFilePath = path.resolve(rootDir, 'logs', 'bot.log');
+const logFilePath = path.resolve(rootDir, 'logs', 'bot.log');  // Direkte Referenz zur Log-Datei
 
 // Bot-Prozess steuern
 let botProcess: ChildProcess | null = null;
@@ -168,8 +168,11 @@ interface ApiResponse {
 
 // Führt API-Anfrage an den Bot durch
 const callBotAPI = async (endpoint: string, method = 'GET', body?: Record<string, unknown>): Promise<ApiResponse> => {
+  // Verwende die Port-Nummer aus der Umgebungsvariable oder den Standard-Port 3001
   const apiPort = process.env.WEB_API_PORT || 3001;
   const apiUrl = `http://localhost:${apiPort}${endpoint}`;
+  
+  console.log(`Calling Bot API: ${method} ${apiUrl}`);
   
   return new Promise((resolve, reject) => {
     const options = {
@@ -193,13 +196,14 @@ const callBotAPI = async (endpoint: string, method = 'GET', body?: Record<string
         try {
           const parsedData = JSON.parse(data);
           resolve(parsedData);
-        } catch {
-          reject(new Error('Invalid JSON response'));
+        } catch (err) {
+          reject(new Error(`Invalid JSON response: ${err.message}`));
         }
       });
     });
     
     req.on('error', (error) => {
+      console.error(`API call error: ${error.message}`);
       reject(error);
     });
     
@@ -209,6 +213,130 @@ const callBotAPI = async (endpoint: string, method = 'GET', body?: Record<string
     
     req.end();
   });
+};
+
+// Hilfsfunktion zum Lesen der Log-Datei direkt (Fallback-Methode)
+const readLogFile = async (type = 'all'): Promise<Array<{ timestamp: string; level: string; message: string; details?: string }>> => {
+  try {
+    // Prüfe, ob die Log-Datei existiert
+    if (!fs.existsSync(logFilePath)) {
+      console.log(`Log file not found at ${logFilePath}. Checking alternative paths...`);
+      
+      // Versuche alternative Log-Pfade
+      const possibleLogPaths = [
+        path.resolve(rootDir, 'logs', 'bot.log'),
+        path.resolve(rootDir, 'bot.log'),
+        path.resolve(rootDir, 'logs', 'app.log'),
+        path.resolve(rootDir, 'log', 'bot.log')
+      ];
+      
+      for (const possiblePath of possibleLogPaths) {
+        if (fs.existsSync(possiblePath)) {
+          console.log(`Found log file at alternative path: ${possiblePath}`);
+          const content = await readFile(possiblePath, 'utf8');
+          return parseLogContent(content, type);
+        }
+      }
+      
+      // Versuche alle Log-Dateien im logs Verzeichnis zu finden
+      const logsDir = path.resolve(rootDir, 'logs');
+      if (fs.existsSync(logsDir)) {
+        const files = fs.readdirSync(logsDir);
+        const logFiles = files.filter(file => file.endsWith('.log'));
+        
+        if (logFiles.length > 0) {
+          console.log(`Found log files in logs directory: ${logFiles.join(', ')}`);
+          const latestLogFile = path.resolve(logsDir, logFiles[0]);
+          console.log(`Reading from latest log file: ${latestLogFile}`);
+          const content = await readFile(latestLogFile, 'utf8');
+          return parseLogContent(content, type);
+        }
+      }
+      
+      console.log('No log files found in any location');
+      return [];
+    }
+    
+    console.log(`Reading log file directly from ${logFilePath}`);
+    const content = await readFile(logFilePath, 'utf8');
+    return parseLogContent(content, type);
+  } catch (error) {
+    console.error(`Error reading log file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    return [];
+  }
+};
+
+// Hilfsfunktion zum Parsen des Log-Inhalts mit verschiedenen Formaten
+const parseLogContent = (content: string, type: string): Array<{ timestamp: string; level: string; message: string; details?: string }> => {
+  const lines = content.split('\n').filter(line => line.trim() !== '');
+  const logs = [];
+  
+  for (const line of lines) {
+    // Standard-Format: [timestamp] [LEVEL] message - details
+    const standardMatch = line.match(/\[([^\]]+)\] \[([A-Z]+)\] (.+)/);
+    if (standardMatch) {
+      const [, timestamp, level, messageWithDetails] = standardMatch;
+      const parts = messageWithDetails.split(' - ');
+      const message = parts[0];
+      const details = parts.length > 1 ? parts.slice(1).join(' - ') : undefined;
+      
+      logs.push({
+        timestamp,
+        level: level.toLowerCase(),
+        message,
+        details
+      });
+      continue;
+    }
+    
+    // Alternative Formate erkennen und parsen
+    // Format 1: timestamp LEVEL: message
+    const format1Match = line.match(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([A-Z]+): (.+)/);
+    if (format1Match) {
+      const [, timestamp, level, message] = format1Match;
+      logs.push({
+        timestamp,
+        level: level.toLowerCase(),
+        message
+      });
+      continue;
+    }
+    
+    // Format 2: timestamp - LEVEL - message
+    const format2Match = line.match(/(\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2}) - ([A-Z]+) - (.+)/);
+    if (format2Match) {
+      const [, timestamp, level, message] = format2Match;
+      logs.push({
+        timestamp,
+        level: level.toLowerCase(),
+        message
+      });
+      continue;
+    }
+    
+    // Wenn keine bekannten Formate erkannt wurden, fügen wir die Zeile als Info-Log hinzu
+    if (line.trim()) {
+      logs.push({
+        timestamp: new Date().toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        }),
+        level: 'info',
+        message: line.trim()
+      });
+    }
+  }
+  
+  // Filter by type if specified
+  if (type !== 'all') {
+    return logs.filter(log => log.level === type.toLowerCase());
+  }
+  
+  return logs;
 };
 
 interface BotStatus {
@@ -484,24 +612,98 @@ export default defineEventHandler(async (event) => {
       // Wenn Bot läuft, versuche echte Logs abzurufen
       if (botStatus.active) {
         try {
+          console.log('Bot is active, attempting to get logs from API');
           const logsResponse = await callBotAPI(`/api/bot/logs?type=${type}`, 'GET') as unknown as { logs: LogEntry[] };
-          if (logsResponse && logsResponse.logs) {
+          if (logsResponse && logsResponse.logs && logsResponse.logs.length > 0) {
+            console.log(`Successfully retrieved ${logsResponse.logs.length} logs from API`);
             return { success: true, logs: logsResponse.logs };
+          } else {
+            console.log('API returned empty logs array, trying to read logs directly');
           }
-        } catch {
-          console.error('Fehler beim Abrufen der Bot-Logs:');
-          // Bei Fehler fallen wir auf Mock-Logs zurück
+        } catch (error) {
+          console.error('Error getting logs from API:', error instanceof Error ? error.message : 'Unknown error');
+        }
+        
+        // Bei leeren Logs oder API-Fehler versuche direkt die Log-Datei zu lesen
+        try {
+          console.log('Attempting to read logs directly from file');
+          const directLogs = await readLogFile(type);
+          if (directLogs.length > 0) {
+            console.log(`Successfully read ${directLogs.length} logs from file`);
+            return { 
+              success: true, 
+              logs: directLogs, 
+              note: 'Logs wurden direkt aus der Datei gelesen'
+            };
+          } else {
+            console.log('No logs found in log file');
+          }
+        } catch (fileError) {
+          console.error('Error reading logs from file:', fileError instanceof Error ? fileError.message : 'Unknown error');
+        }
+      } else {
+        // Wenn Bot nicht aktiv ist, versuche trotzdem die Log-Datei zu lesen
+        try {
+          console.log('Bot is not active, attempting to read logs directly from file');
+          const directLogs = await readLogFile(type);
+          if (directLogs.length > 0) {
+            console.log(`Successfully read ${directLogs.length} logs from file despite bot being inactive`);
+            return { 
+              success: true, 
+              logs: directLogs, 
+              note: 'Logs wurden direkt aus der Datei gelesen (Bot ist nicht aktiv)'
+            };
+          }
+        } catch (fileError) {
+          console.error('Error reading logs from file with inactive bot:', fileError instanceof Error ? fileError.message : 'Unknown error');
         }
       }
       
-      // Fallback auf Mock-Logs
+      // Fallback auf generierten Test-Log, wenn keine echten Logs gefunden wurden
+      console.log('Using generated test logs as fallback');
+      const currentDate = new Date();
+      const formattedDate = currentDate.toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+      const formattedTime = (hours: number, minutes: number) => {
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+      };
+      
       const mockLogs: LogEntry[] = [
-        { timestamp: '03.04.2025 10:15:00', level: 'info', message: 'Bot gestartet' },
-        { timestamp: '03.04.2025 10:15:10', level: 'debug', message: 'Vertretungsplan wird abgerufen', details: 'URL: https://api.example.com/vertretungsplan' },
-        { timestamp: '03.04.2025 10:15:15', level: 'info', message: 'Vertretungsplan erfolgreich aktualisiert' },
-        { timestamp: '03.04.2025 10:15:30', level: 'debug', message: 'Prüfe auf Änderungen' },
-        { timestamp: '03.04.2025 10:16:00', level: 'info', message: 'Keine Änderungen gefunden' },
-        { timestamp: '03.04.2025 11:00:00', level: 'error', message: 'Fehler beim Abrufen des Vertretungsplans', details: 'API nicht erreichbar: Timeout' }
+        { 
+          timestamp: `${formattedDate} ${formattedTime(currentDate.getHours(), currentDate.getMinutes())}`, 
+          level: 'info', 
+          message: 'Keine echten Logs gefunden. Dies ist ein Test-Log.' 
+        },
+        { 
+          timestamp: `${formattedDate} ${formattedTime(currentDate.getHours(), currentDate.getMinutes()-5)}`, 
+          level: 'debug', 
+          message: 'Vertretungsplan wird abgerufen', 
+          details: 'URL: https://api.example.com/vertretungsplan' 
+        },
+        { 
+          timestamp: `${formattedDate} ${formattedTime(currentDate.getHours(), currentDate.getMinutes()-4)}`, 
+          level: 'info', 
+          message: 'Vertretungsplan erfolgreich aktualisiert' 
+        },
+        { 
+          timestamp: `${formattedDate} ${formattedTime(currentDate.getHours(), currentDate.getMinutes()-3)}`, 
+          level: 'debug', 
+          message: 'Prüfe auf Änderungen' 
+        },
+        { 
+          timestamp: `${formattedDate} ${formattedTime(currentDate.getHours(), currentDate.getMinutes()-2)}`, 
+          level: 'info', 
+          message: 'Keine Änderungen gefunden' 
+        },
+        { 
+          timestamp: `${formattedDate} ${formattedTime(currentDate.getHours(), currentDate.getMinutes()-1)}`, 
+          level: 'error', 
+          message: 'Fehler beim Abrufen des Vertretungsplans', 
+          details: 'API nicht erreichbar: Timeout' 
+        }
       ];
       
       let filteredLogs = mockLogs;
@@ -512,7 +714,7 @@ export default defineEventHandler(async (event) => {
       return { 
         success: true, 
         logs: filteredLogs, 
-        note: botStatus.active ? 'Echte Logs konnten nicht abgerufen werden' : 'Bot ist nicht erreichbar, verwende Mock-Logs'
+        note: 'Keine echten Logs gefunden. Zeige Test-Log-Daten an.'
       };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Logs konnten nicht geladen werden';

@@ -4,7 +4,7 @@
 const { Client } = require('discord.js');
 const { CLIENT_CONFIG, DEBUG } = require('./src/config');
 const { setupHandlers } = require('./src/bot/handlers');
-const { debugLog } = require('./src/utils/debugUtils');
+const { debugLog, infoLog, errorLog } = require('./src/utils/debugUtils');
 const ApiWebService = require('./src/services/apiWebService');
 
 // Debug-Modus Status ausgeben
@@ -27,7 +27,7 @@ let apiService;
 // Bot einloggen
 client.login(process.env.DISCORD_TOKEN)
     .then(() => {
-        console.log('Bot angemeldet');
+        infoLog('Bot angemeldet');
         debugLog('Bot erfolgreich angemeldet');
         
         // API-Server nach erfolgreicher Anmeldung starten
@@ -35,14 +35,14 @@ client.login(process.env.DISCORD_TOKEN)
         apiService.start();
     })
     .catch(error => {
+        errorLog(`Fehler beim Anmelden: ${error.message}`);
         console.error('Fehler beim Anmelden:', error);
-        debugLog(`Fehler beim Anmelden: ${error.message}`);
     });
 
 // Fehlerbehandlung für unerwartete Fehler
 process.on('unhandledRejection', error => {
+    errorLog(`KRITISCH: Unbehandelter Promise-Fehler: ${error.message}`);
     console.error('Unbehandelter Promise-Fehler:', error);
-    debugLog(`KRITISCH: Unbehandelter Promise-Fehler: ${error.message}`);
 });
 
 // Zusätzliche Debug-Informationen
@@ -53,7 +53,7 @@ if (DEBUG) {
     
     // Event-Listener für Prozessbeendigung
     process.on('SIGINT', () => {
-        debugLog('Bot wird durch SIGINT beendet');
+        infoLog('Bot wird durch SIGINT beendet');
         
         // API-Server stoppen, falls vorhanden
         if (apiService) {
@@ -64,7 +64,7 @@ if (DEBUG) {
     });
     
     process.on('SIGTERM', () => {
-        debugLog('Bot wird durch SIGTERM beendet');
+        infoLog('Bot wird durch SIGTERM beendet');
         
         // API-Server stoppen, falls vorhanden
         if (apiService) {

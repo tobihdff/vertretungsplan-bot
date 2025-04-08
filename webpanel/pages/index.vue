@@ -30,7 +30,7 @@
             Der Vertretungsplan wurde zuletzt am {{ lastUpdateTime }} aktualisiert.
           </p>
         </div>
-        <button @click="forceUpdate" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition" :disabled="!botActive">
+        <button @click="showForceUpdateConfirm" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition" :disabled="!botActive">
           Update erzwingen
         </button>
       </div>
@@ -43,7 +43,7 @@
             {{ maintenanceMode ? 'Der Bot befindet sich im Wartungsmodus. Automatische Updates sind deaktiviert.' : 'Automatische Updates sind aktiviert.' }}
           </p>
         </div>
-        <button @click="toggleMaintenanceMode" 
+        <button @click="showMaintenanceModeConfirm" 
                class="mt-4 w-full font-medium py-2 px-4 rounded transition"
                :class="maintenanceMode ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-yellow-600 hover:bg-yellow-700 text-white'"
                :disabled="!botActive">
@@ -84,26 +84,92 @@
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 transition-colors duration-300">
       <h2 class="text-lg font-semibold mb-4 dark:text-white">Schnellaktionen</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-        <button @click="clearChannel" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-3 md:px-4 text-sm md:text-base rounded transition" :disabled="!botActive">
+        <button @click="showChannelIdModal" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-3 md:px-4 text-sm md:text-base rounded transition" :disabled="!botActive">
           Channel leeren
         </button>
-        <button @click="testNotification" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-3 md:px-4 text-sm md:text-base rounded transition" :disabled="!botActive">
+        <button @click="showTestNotificationConfirm" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-3 md:px-4 text-sm md:text-base rounded transition" :disabled="!botActive">
           Benachrichtigung testen
         </button>
-        <button @click="testPlanGeneration" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-3 md:px-4 text-sm md:text-base rounded transition" :disabled="!botActive">
+        <button @click="showTestPlanGenerationConfirm" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-3 md:px-4 text-sm md:text-base rounded transition" :disabled="!botActive">
           Plan-Generierung testen
         </button>
-        <button @click="testUpdate" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-3 md:px-4 text-sm md:text-base rounded transition" :disabled="!botActive">
+        <button @click="showTestUpdateConfirm" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-3 md:px-4 text-sm md:text-base rounded transition" :disabled="!botActive">
           Änderungserkennung testen
         </button>
       </div>
     </div>
+
+    <!-- Channel-ID Input Modal -->
+    <InputModal
+      :is-open="isChannelIdModalOpen"
+      title="Channel leeren"
+      label="Bitte geben Sie die Channel-ID ein:"
+      placeholder="123456789012345678"
+      help-text="Dies wird alle Nachrichten im angegebenen Channel löschen."
+      @confirm="onChannelIdConfirm"
+      @cancel="isChannelIdModalOpen = false"
+    />
+
+    <!-- Bestätigungs-Modals -->
+    <ConfirmationModal
+      :is-open="isNotificationConfirmOpen"
+      title="Test-Benachrichtigung senden"
+      message="Möchten Sie eine Test-Benachrichtigung an alle konfigurierten Kanäle senden?"
+      details="Dies wird eine Test-Benachrichtigung an alle Nutzer senden, die den Bot abonniert haben."
+      type="primary"
+      @confirm="onConfirmTestNotification"
+      @cancel="isNotificationConfirmOpen = false"
+    />
+
+    <ConfirmationModal
+      :is-open="isPlanGenerationConfirmOpen"
+      title="Plan-Generierung testen"
+      message="Möchten Sie die Plan-Generierung testen?"
+      details="Es wird ein neuer Vertretungsplan generiert, aber keine Benachrichtigungen verschickt."
+      type="primary"
+      @confirm="onConfirmTestPlanGeneration"
+      @cancel="isPlanGenerationConfirmOpen = false"
+    />
+
+    <ConfirmationModal
+      :is-open="isUpdateConfirmOpen"
+      title="Änderungserkennung testen"
+      message="Möchten Sie die Änderungserkennung testen?"
+      details="Dies wird überprüfen, ob sich der Vertretungsplan geändert hat."
+      type="primary"
+      @confirm="onConfirmTestUpdate"
+      @cancel="isUpdateConfirmOpen = false"
+    />
+
+    <ConfirmationModal
+      :is-open="isForceUpdateConfirmOpen"
+      title="Update erzwingen"
+      message="Möchten Sie ein Update des Vertretungsplans erzwingen?"
+      details="Dies wird die Vertretungsplan-Daten neu laden, auch wenn sie sich nicht geändert haben."
+      type="primary"
+      @confirm="onConfirmForceUpdate"
+      @cancel="isForceUpdateConfirmOpen = false"
+    />
+
+    <ConfirmationModal
+      :is-open="isMaintenanceConfirmOpen"
+      :title="maintenanceMode ? 'Wartungsmodus deaktivieren' : 'Wartungsmodus aktivieren'"
+      :message="maintenanceMode ? 'Möchten Sie den Wartungsmodus deaktivieren?' : 'Möchten Sie den Wartungsmodus aktivieren?'"
+      :details="maintenanceMode 
+        ? 'Automatische Updates werden wieder aktiviert.' 
+        : 'Im Wartungsmodus werden automatische Updates deaktiviert.'"
+      :type="maintenanceMode ? 'primary' : 'warning'"
+      @confirm="onConfirmMaintenanceToggle"
+      @cancel="isMaintenanceConfirmOpen = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed, onUnmounted } from 'vue';
 import useToast from '../composables/useToast';
+import InputModal from '../components/InputModal.vue';
+import ConfirmationModal from '../components/ConfirmationModal.vue';
 
 // Zustandsvariablen
 const botActive = ref(false);
@@ -113,6 +179,14 @@ const recentActivities = ref([]);
 const refreshInterval = ref(null);
 const isLoading = ref(true);
 const { showToast } = useToast();
+
+// Modal States
+const isChannelIdModalOpen = ref(false);
+const isNotificationConfirmOpen = ref(false);
+const isPlanGenerationConfirmOpen = ref(false);
+const isUpdateConfirmOpen = ref(false);
+const isForceUpdateConfirmOpen = ref(false);
+const isMaintenanceConfirmOpen = ref(false);
 
 // Berechnete Eigenschaft für Statusmeldung
 const statusMessage = computed(() => {
@@ -157,13 +231,17 @@ const refreshStatus = async () => {
   await fetchBotStatus();
 };
 
-// Update erzwingen
-const forceUpdate = async () => {
+// Force Update Modal anzeigen
+const showForceUpdateConfirm = () => {
   if (!botActive.value) {
     showToast('Der Bot ist nicht erreichbar. Update kann nicht durchgeführt werden.', 'error');
     return;
   }
-  
+  isForceUpdateConfirmOpen.value = true;
+};
+
+// Force Update nach Bestätigung
+const onConfirmForceUpdate = async () => {
   try {
     const response = await fetch('/api/bot/force-update', { method: 'POST' });
     const data = await response.json();
@@ -176,22 +254,28 @@ const forceUpdate = async () => {
     }
   } catch (error) {
     showToast('Fehler beim Aktualisieren des Vertretungsplans: ' + error.message, 'error');
+  } finally {
+    isForceUpdateConfirmOpen.value = false;
   }
 };
 
-// Wartungsmodus umschalten
-const toggleMaintenanceMode = async () => {
+// Wartungsmodus Modal anzeigen
+const showMaintenanceModeConfirm = () => {
   if (!botActive.value) {
     showToast('Der Bot ist nicht erreichbar. Wartungsmodus kann nicht geändert werden.', 'warning');
     return;
   }
-  
+  isMaintenanceConfirmOpen.value = true;
+};
+
+// Wartungsmodus umschalten nach Bestätigung
+const onConfirmMaintenanceToggle = async () => {
   try {
     const newState = !maintenanceMode.value;
     const response = await fetch('/api/bot/maintenance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: newState }) // Changed from 'enable' to 'enabled' for consistency
+      body: JSON.stringify({ enabled: newState })
     });
     const data = await response.json();
     if (data.success) {
@@ -202,21 +286,28 @@ const toggleMaintenanceMode = async () => {
     }
   } catch (error) {
     showToast('Fehler beim Ändern des Wartungsmodus: ' + error.message, 'error');
+  } finally {
+    isMaintenanceConfirmOpen.value = false;
   }
 };
 
-// Channel leeren
-const clearChannel = async () => {
+// Modal für Channel-ID anzeigen
+const showChannelIdModal = () => {
   if (!botActive.value) {
     showToast('Der Bot ist nicht erreichbar. Channel kann nicht geleert werden.', 'error');
     return;
   }
+  isChannelIdModalOpen.value = true;
+};
+
+// Verarbeitung der Channel-ID und Ausführung des Channel-Löschens
+const onChannelIdConfirm = async (channelId) => {
+  if (!channelId) {
+    isChannelIdModalOpen.value = false;
+    return;
+  }
   
   try {
-    // Channel ID abfragen
-    const channelId = prompt('Bitte geben Sie die Channel-ID ein:');
-    if (!channelId) return;
-    
     const response = await fetch('/api/bot/clear-channel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -231,16 +322,22 @@ const clearChannel = async () => {
     }
   } catch (error) {
     showToast('Fehler beim Leeren des Channels: ' + error.message, 'error');
+  } finally {
+    isChannelIdModalOpen.value = false;
   }
 };
 
-// Benachrichtigung testen
-const testNotification = async () => {
+// Benachrichtigung testen - Modal anzeigen
+const showTestNotificationConfirm = () => {
   if (!botActive.value) {
     showToast('Der Bot ist nicht erreichbar. Benachrichtigung kann nicht getestet werden.', 'error');
     return;
   }
-  
+  isNotificationConfirmOpen.value = true;
+};
+
+// Benachrichtigung testen - nach Bestätigung
+const onConfirmTestNotification = async () => {
   try {
     const response = await fetch('/api/bot/test-notification', { method: 'POST' });
     const data = await response.json();
@@ -252,16 +349,22 @@ const testNotification = async () => {
     }
   } catch (error) {
     showToast('Fehler beim Testen der Benachrichtigung: ' + error.message, 'error');
+  } finally {
+    isNotificationConfirmOpen.value = false;
   }
 };
 
-// Plan-Generierung testen
-const testPlanGeneration = async () => {
+// Plan-Generierung testen - Modal anzeigen
+const showTestPlanGenerationConfirm = () => {
   if (!botActive.value) {
     showToast('Der Bot ist nicht erreichbar. Plan-Generierung kann nicht getestet werden.', 'error');
     return;
   }
-  
+  isPlanGenerationConfirmOpen.value = true;
+};
+
+// Plan-Generierung testen - nach Bestätigung
+const onConfirmTestPlanGeneration = async () => {
   try {
     const response = await fetch('/api/bot/test-plan', { method: 'POST' });
     const data = await response.json();
@@ -273,16 +376,22 @@ const testPlanGeneration = async () => {
     }
   } catch (error) {
     showToast('Fehler beim Testen der Plan-Generierung: ' + error.message, 'error');
+  } finally {
+    isPlanGenerationConfirmOpen.value = false;
   }
 };
 
-// Änderungserkennung testen
-const testUpdate = async () => {
+// Änderungserkennung testen - Modal anzeigen
+const showTestUpdateConfirm = () => {
   if (!botActive.value) {
     showToast('Der Bot ist nicht erreichbar. Änderungserkennung kann nicht getestet werden.', 'error');
     return;
   }
-  
+  isUpdateConfirmOpen.value = true;
+};
+
+// Änderungserkennung testen - nach Bestätigung
+const onConfirmTestUpdate = async () => {
   try {
     const response = await fetch('/api/bot/test-update', { method: 'POST' });
     const data = await response.json();
@@ -294,6 +403,8 @@ const testUpdate = async () => {
     }
   } catch (error) {
     showToast('Fehler beim Testen der Änderungserkennung: ' + error.message, 'error');
+  } finally {
+    isUpdateConfirmOpen.value = false;
   }
 };
 
