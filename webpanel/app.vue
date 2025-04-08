@@ -1,53 +1,219 @@
 <template>
   <div class="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
-    <div class="flex">
-      <!-- Sidebar -->
-      <aside class="w-64 bg-blue-900 dark:bg-blue-950 min-h-screen p-4">
-        <div class="text-white font-bold text-xl mb-8 flex items-center">
-          <span class="mr-2">📊</span> Vertretungsplan
+    <!-- Mobile hamburger menu button -->
+    <div class="md:hidden bg-blue-900 dark:bg-blue-950 p-4 flex justify-between items-center fixed top-0 left-0 right-0 z-30">
+      <div class="text-white font-bold text-xl flex items-center">
+        <span class="mr-2">📱</span> Vertretungsplan
+      </div>
+      <button @click="menuOpen = !menuOpen" class="text-white focus:outline-none menu-button">
+        <div class="menu-icon" :class="{ 'open': menuOpen }">
+          <span></span>
+          <span></span>
+          <span></span>
         </div>
+      </button>
+    </div>
+    
+    <!-- Container für das mobile Menü und den Overlay -->
+    <div class="fixed inset-0 pointer-events-none z-20">
+      <!-- Mobile menu overlay -->
+      <div 
+        v-if="menuOpen" 
+        class="fixed inset-0 bg-black bg-opacity-50 md:hidden pointer-events-auto" 
+        @click="menuOpen = false"
+      ></div>
+      
+      <!-- Collapsible sidebar -->
+      <aside 
+        class="sidebar-transition bg-blue-900 dark:bg-blue-950 p-4 flex flex-col pointer-events-auto"
+        :class="{
+          'fixed top-0 left-0 right-0 bottom-auto max-h-[80vh] rounded-b-xl shadow-xl transform translate-y-0': menuOpen && window.innerWidth < 768,
+          'fixed top-0 left-0 right-0 bottom-auto max-h-[80vh] rounded-b-xl shadow-xl transform -translate-y-full': !menuOpen && window.innerWidth < 768,
+          'md:fixed md:top-0 md:bottom-0 md:left-0 md:right-auto md:transform-none md:h-screen md:max-h-none md:rounded-none': true,
+          'md:w-64': !isCollapsed,
+          'md:w-16': isCollapsed,
+          'md:block': true,
+          'md:items-center': isCollapsed,
+          'z-25': true,
+          'pt-16': window.innerWidth < 768,
+          'overflow-y-auto overflow-x-hidden': true
+        }"
+      >
+        <!-- Collapse/Expand button mit höherem z-index -->
+        <button 
+          @click="toggleSidebar" 
+          class="hidden md:flex absolute -right-4 top-6 bg-white dark:bg-gray-800 rounded-full w-8 h-8 items-center justify-center text-blue-900 dark:text-white shadow-lg border border-blue-200 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors duration-200 !z-[1000]"
+          :class="{'rotate-180': !isCollapsed}"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+          </svg>
+        </button>
+
+        <!-- Logo area -->
+        <div 
+          class="text-white font-bold text-xl mb-8 flex items-center md:mt-0"
+          :class="{
+            'justify-center w-full': isCollapsed,
+            'hidden md:flex': true
+          }"
+        >
+          <span class="mr-2">📱</span>
+          <span :class="{'opacity-0 w-0 overflow-hidden': isCollapsed}">Vertretungsplan</span>
+        </div>
+
+        <!-- Navigation -->
         <nav class="space-y-2">
-          <NuxtLink to="/" class="block px-4 py-2 rounded text-white hover:bg-blue-800 dark:hover:bg-blue-800/60 transition">Dashboard</NuxtLink>
-          <NuxtLink to="/settings" class="block px-4 py-2 rounded text-white hover:bg-blue-800 dark:hover:bg-blue-800/60 transition">Einstellungen</NuxtLink>
-          <NuxtLink to="/logs" class="block px-4 py-2 rounded text-white hover:bg-blue-800 dark:hover:bg-blue-800/60 transition">Logs</NuxtLink>
+          <NuxtLink 
+            to="/" 
+            class="block px-4 py-2 rounded text-white hover:bg-blue-800 dark:hover:bg-blue-800/60 transition flex items-center"
+            :class="{'justify-center': isCollapsed}"
+            @click="closeMenuOnMobile"
+            :title="isCollapsed ? 'Dashboard' : ''"
+          >
+            <span :class="{'mr-0': isCollapsed, 'mr-2': !isCollapsed}">📊</span>
+            <span :class="{'opacity-0 w-0 overflow-hidden': isCollapsed}">Dashboard</span>
+          </NuxtLink>
+          <NuxtLink 
+            to="/settings" 
+            class="block px-4 py-2 rounded text-white hover:bg-blue-800 dark:hover:bg-blue-800/60 transition flex items-center"
+            :class="{'justify-center': isCollapsed}"
+            @click="closeMenuOnMobile"
+            :title="isCollapsed ? 'Einstellungen' : ''"
+          >
+            <span :class="{'mr-0': isCollapsed, 'mr-2': !isCollapsed}">⚙️</span>
+            <span :class="{'opacity-0 w-0 overflow-hidden': isCollapsed}">Einstellungen</span>
+          </NuxtLink>
+          <NuxtLink 
+            to="/logs" 
+            class="block px-4 py-2 rounded text-white hover:bg-blue-800 dark:hover:bg-blue-800/60 transition flex items-center"
+            :class="{'justify-center': isCollapsed}"
+            @click="closeMenuOnMobile"
+            :title="isCollapsed ? 'Logs' : ''"
+          >
+            <span :class="{'mr-0': isCollapsed, 'mr-2': !isCollapsed}">📝</span>
+            <span :class="{'opacity-0 w-0 overflow-hidden': isCollapsed}">Logs</span>
+          </NuxtLink>
         </nav>
         
         <!-- Darkmode Toggle -->
-        <div class="mt-6 flex items-center text-white">
-          <button @click="toggleDarkMode" class="flex items-center justify-center p-2 rounded hover:bg-blue-800 dark:hover:bg-blue-800/60">
-            <span v-if="isDarkMode" class="mr-2">🌙</span>
-            <span v-else class="mr-2">☀️</span>
-            {{ isDarkMode ? 'Dark Mode' : 'Light Mode' }}
+        <div class="mt-6 text-white">
+          <button 
+            class="block w-full px-4 py-2 rounded text-white hover:bg-blue-800 dark:hover:bg-blue-800/60 transition flex items-center" 
+            :class="{'justify-center': isCollapsed}"
+            @click="toggleDarkMode" 
+            :title="isCollapsed ? (isDarkMode ? 'Light Mode' : 'Dark Mode') : ''"
+          >
+            <span :class="{'mr-0': isCollapsed, 'mr-2': !isCollapsed}">{{ isDarkMode ? '🌙' : '☀️' }}</span>
+            <span :class="{'opacity-0 w-0 overflow-hidden': isCollapsed}">{{ isDarkMode ? 'Dark Mode' : 'Light Mode' }}</span>
           </button>
         </div>
 
-        <div class="mt-8 text-white text-sm">
+        <!-- Status area - nur auf Desktop angezeigt -->
+        <div 
+          class="text-white text-sm absolute bottom-4 left-0 right-0 px-4 hidden md:block" 
+          :class="{'flex flex-col items-center': isCollapsed}"
+        >
+          <div 
+            class="flex items-center mb-2"
+            :class="{'justify-center': isCollapsed}"
+          >
+            <div class="relative">
+              <div 
+                class="w-3 h-3 rounded-full z-10 relative" 
+                :class="botActive ? 'bg-green-500' : 'bg-red-500'"
+                :title="botActive ? 'Bot ist online' : 'Bot ist offline'"
+              ></div>
+              <div 
+                class="absolute top-0 left-0 w-3 h-3 rounded-full ripple-effect"
+                :class="botActive ? 'ripple-green' : 'ripple-red'"
+              ></div>
+            </div>
+            <span 
+              :class="{
+                'opacity-0 w-0 overflow-hidden': isCollapsed,
+                'ml-2': !isCollapsed
+              }"
+            >Bot Status: {{ botActive ? 'Online' : 'Offline' }}</span>
+          </div>
+          <div 
+            class="text-xs opacity-70" 
+            :class="{'opacity-0 h-0 overflow-hidden': isCollapsed}"
+          >Version 1.0.0</div>
+        </div>
+        
+        <!-- Status-Bereich für mobiles Menü -->
+        <div class="text-white text-sm mt-6 md:hidden">
           <div class="flex items-center mb-2">
-            <div class="w-3 h-3 rounded-full" 
-                 :class="botActive ? 'bg-green-500' : 'bg-red-500'"
-                 :title="botActive ? 'Bot ist online' : 'Bot ist offline'"></div>
+            <div class="relative">
+              <div 
+                class="w-3 h-3 rounded-full z-10 relative" 
+                :class="botActive ? 'bg-green-500' : 'bg-red-500'"
+                :title="botActive ? 'Bot ist online' : 'Bot ist offline'"
+              ></div>
+              <div 
+                class="absolute top-0 left-0 w-3 h-3 rounded-full ripple-effect"
+                :class="botActive ? 'ripple-green' : 'ripple-red'"
+              ></div>
+            </div>
             <span class="ml-2">Bot Status: {{ botActive ? 'Online' : 'Offline' }}</span>
           </div>
           <div class="text-xs opacity-70">Version 1.0.0</div>
         </div>
       </aside>
+    </div>
 
-      <!-- Main Content -->
-      <main class="flex-1 p-6 text-gray-900 dark:text-gray-100">
+    <!-- Main Content -->
+    <div class="flex flex-col md:flex-row">
+      <!-- Main Content mit korrektem Abstand -->
+      <main 
+        class="flex-1 p-4 md:p-6 transition-all duration-300 pt-[76px] md:pt-6" 
+        :class="{
+          'md:ml-64': !isCollapsed,
+          'md:ml-16': isCollapsed, 
+          'ml-0': true,
+          'text-gray-900 dark:text-gray-100': true
+        }"
+      >
         <NuxtPage />
       </main>
     </div>
     
     <!-- Toast Notifications -->
-    <Toast />
+    <ToastNotification />
   </div>
 </template>
 
 <script setup>
+import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { useDarkMode } from './composables/useDarkMode';
+import useToast from './composables/useToast';
+
 // Darkmode Composable importieren
 const { isDarkMode, toggleDarkMode, init } = useDarkMode();
 const botActive = ref(false);
+const menuOpen = ref(false);
+const isCollapsed = ref(false);
+const hoverTimeout = ref(null);
+const wasCollapsed = ref(false); // Track previous state
 const { showToast } = useToast();
+const window = ref(typeof globalThis !== 'undefined' ? globalThis : {innerWidth: 1024});
+
+// Close menu on mobile when a link is clicked
+const closeMenuOnMobile = () => {
+  if (window.value.innerWidth < 768) {
+    menuOpen.value = false;
+  }
+};
+
+// Toggle sidebar expanded/collapsed state
+const toggleSidebar = () => {
+  isCollapsed.value = !isCollapsed.value;
+  wasCollapsed.value = isCollapsed.value;
+  if (import.meta.client) {
+    localStorage.setItem('sidebarCollapsed', isCollapsed.value ? 'true' : 'false');
+  }
+};
 
 // Bot Status regelmäßig prüfen
 const checkBotStatus = async () => {
@@ -60,13 +226,30 @@ const checkBotStatus = async () => {
   } catch (error) {
     console.error('Fehler beim Prüfen des Bot-Status:', error);
     botActive.value = false; // Bei Fehler annehmen, dass Bot offline ist
-    showToast('Fehler beim Prüfen des Bot-Status', 'error');
+    
+    // Only show toast on client side
+    if (import.meta.client) {
+      showToast('Fehler beim Prüfen des Bot-Status', 'error');
+    }
+  }
+};
+
+// Initialize sidebar state from localStorage
+const initSidebarState = () => {
+  if (import.meta.client) {
+    const savedState = localStorage.getItem('sidebarCollapsed');
+    if (savedState !== null) {
+      isCollapsed.value = savedState === 'true';
+      wasCollapsed.value = isCollapsed.value;
+    }
+    window.value = globalThis.window;
   }
 };
 
 // Bot-Status initial und dann alle 10 Sekunden prüfen
 onMounted(() => {
   init(); // Darkmode initialisieren
+  initSidebarState(); // Sidebar state initialisieren
   checkBotStatus(); // Initial prüfen
   
   // Regelmäßiges Prüfen einrichten
@@ -75,6 +258,9 @@ onMounted(() => {
   // Cleanup beim Unmount
   onUnmounted(() => {
     clearInterval(statusInterval);
+    if (hoverTimeout.value) {
+      clearTimeout(hoverTimeout.value);
+    }
   });
 });
 </script>
@@ -88,5 +274,139 @@ body {
 .antialiased {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.sidebar-transition {
+  transition: width 0.3s ease, transform 0.3s ease;
+}
+
+.sidebar-transition span {
+  transition: opacity 0.2s ease, width 0.2s ease;
+  white-space: nowrap;
+}
+
+.hover-area {
+  cursor: pointer;
+  background: transparent;
+}
+
+/* Main content transition */
+main {
+  transition: margin-left 0.3s ease;
+}
+
+/* Ripple-Effekt für den Status-Indikator */
+.ripple-effect {
+  animation: ripple 2s infinite;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.25);
+    opacity: 0;
+  }
+}
+
+/* Unterschiedliche Farben für grün und rot */
+.ripple-green {
+  background-color: #10b981; /* green-500 */
+}
+
+.ripple-red {
+  background-color: #ef4444; /* red-500 */
+}
+
+/* Mobile menu transition */
+.transform {
+  transition: transform 0.3s ease;
+}
+
+/* Z-Index Hierarchie für Overlay und Sidebar */
+.z-25 {
+  z-index: 25;
+}
+
+/* Mobile menu transition - sorgt für flüssige Animation */
+.transform {
+  transition: transform 0.3s ease;
+}
+
+/* Animiertes Burger-Menü */
+.menu-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  position: relative;
+}
+
+.menu-icon {
+  position: relative;
+  width: 24px;
+  height: 18px;
+  transition: transform 0.3s ease;
+}
+
+.menu-icon span {
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  background-color: white;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.menu-icon span:nth-child(1) {
+  top: 0;
+}
+
+.menu-icon span:nth-child(2) {
+  top: 8px;
+}
+
+.menu-icon span:nth-child(3) {
+  top: 16px;
+}
+
+/* X-Animation */
+.menu-icon.open span:nth-child(1) {
+  transform: rotate(45deg);
+  top: 8px;
+}
+
+.menu-icon.open span:nth-child(2) {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+.menu-icon.open span:nth-child(3) {
+  transform: rotate(-45deg);
+  top: 8px;
+}
+
+/* Dropdown-Animation */
+.transform {
+  transition: transform 0.3s ease;
+}
+
+/* Z-Index-Hierarchie verbessern */
+.z-40 {
+  z-index: 40;
+}
+
+/* Verhindere Textumbruch und horizontales Scrollen in der Sidebar */
+.overflow-x-hidden {
+  overflow-x: hidden;
+}
+
+/* Stelle sicher, dass der Collapse-Button über dem Inhalt liegt */
+button.z-40 {
+  position: absolute;
+  right: -16px;
 }
 </style>

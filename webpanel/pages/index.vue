@@ -1,54 +1,59 @@
 <template>
   <div>
-    <h1 class="text-2xl font-bold mb-6">Vertretungsplan Bot Dashboard</h1>
+    <h1 class="text-2xl font-bold mb-4 md:mb-6">Dashboard</h1>
     
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-4 md:mb-8">
       <!-- Status Card -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors duration-300">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 transition-colors duration-300 flex flex-col h-full">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-lg font-semibold dark:text-white">Bot Status</h2>
           <span class="px-2 py-1 text-xs rounded-full" :class="botActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'">
             {{ botActive ? 'Aktiv' : 'Inaktiv' }}
           </span>
         </div>
-        <p class="text-gray-600 dark:text-gray-300 text-sm mb-4">
-          {{ statusMessage }}
-        </p>
-        <p class="text-sm text-gray-500 dark:text-gray-400">Letzter Check: {{ lastUpdateTime }}</p>
-        <button @click="refreshStatus" class="mt-3 w-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded transition">
+        <div class="flex-grow">
+          <p class="text-gray-600 dark:text-gray-300 text-sm mb-4">
+            {{ statusMessage }}
+          </p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Letzter Check: {{ lastUpdateTime }}</p>
+        </div>
+        <button @click="refreshStatus" class="mt-4 w-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded transition">
           Status aktualisieren
         </button>
       </div>
       
       <!-- Update Card -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors duration-300">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 transition-colors duration-300 flex flex-col h-full">
         <h2 class="text-lg font-semibold mb-4 dark:text-white">Letzte Aktualisierung</h2>
-        <p class="text-gray-600 dark:text-gray-300 text-sm mb-4">
-          Der Vertretungsplan wurde zuletzt am {{ lastUpdateTime }} aktualisiert.
-        </p>
-        <button @click="forceUpdate" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition" :disabled="!botActive">
+        <div class="flex-grow">
+          <p class="text-gray-600 dark:text-gray-300 text-sm">
+            Der Vertretungsplan wurde zuletzt am {{ lastUpdateTime }} aktualisiert.
+          </p>
+        </div>
+        <button @click="forceUpdate" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition" :disabled="!botActive">
           Update erzwingen
         </button>
       </div>
       
       <!-- Wartungsmodus Card -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors duration-300">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 transition-colors duration-300 flex flex-col h-full">
         <h2 class="text-lg font-semibold mb-4 dark:text-white">Wartungsmodus</h2>
-        <p class="text-gray-600 dark:text-gray-300 text-sm mb-4">
-          {{ maintenanceMode ? 'Der Bot befindet sich im Wartungsmodus. Automatische Updates sind deaktiviert.' : 'Automatische Updates sind aktiviert.' }}
-        </p>
-        <div class="flex items-center">
-          <button @click="toggleMaintenanceMode" class="w-full font-medium py-2 px-4 rounded transition"
-                 :class="maintenanceMode ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-yellow-600 hover:bg-yellow-700 text-white'"
-                 :disabled="!botActive">
-            {{ maintenanceMode ? 'Wartungsmodus deaktivieren' : 'Wartungsmodus aktivieren' }}
-          </button>
+        <div class="flex-grow">
+          <p class="text-gray-600 dark:text-gray-300 text-sm">
+            {{ maintenanceMode ? 'Der Bot befindet sich im Wartungsmodus. Automatische Updates sind deaktiviert.' : 'Automatische Updates sind aktiviert.' }}
+          </p>
         </div>
+        <button @click="toggleMaintenanceMode" 
+               class="mt-4 w-full font-medium py-2 px-4 rounded transition"
+               :class="maintenanceMode ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-yellow-600 hover:bg-yellow-700 text-white'"
+               :disabled="!botActive">
+          {{ maintenanceMode ? 'Wartungsmodus deaktivieren' : 'Wartungsmodus aktivieren' }}
+        </button>
       </div>
     </div>
     
     <!-- Aktuelle Aktivitäten -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 transition-colors duration-300">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 mb-4 md:mb-8 transition-colors duration-300">
       <h2 class="text-lg font-semibold mb-4 dark:text-white">Aktuelle Aktivitäten</h2>
       <div class="space-y-3">
         <div v-for="(activity, index) in recentActivities" :key="index" class="flex items-start pb-3 border-b border-gray-200 dark:border-gray-700 last:border-0">
@@ -65,7 +70,7 @@
             <span v-else>📝</span>
           </div>
           <div class="flex-1">
-            <p class="font-medium dark:text-white">{{ activity.message }}</p>
+            <p class="font-medium dark:text-white break-words">{{ activity.message }}</p>
             <p class="text-sm text-gray-500 dark:text-gray-400">{{ activity.timestamp }}</p>
           </div>
         </div>
@@ -76,19 +81,19 @@
     </div>
     
     <!-- Quick Actions -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors duration-300">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 transition-colors duration-300">
       <h2 class="text-lg font-semibold mb-4 dark:text-white">Schnellaktionen</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <button @click="clearChannel" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded transition" :disabled="!botActive">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+        <button @click="clearChannel" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-3 md:px-4 text-sm md:text-base rounded transition" :disabled="!botActive">
           Channel leeren
         </button>
-        <button @click="testNotification" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded transition" :disabled="!botActive">
+        <button @click="testNotification" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-3 md:px-4 text-sm md:text-base rounded transition" :disabled="!botActive">
           Benachrichtigung testen
         </button>
-        <button @click="testPlanGeneration" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded transition" :disabled="!botActive">
+        <button @click="testPlanGeneration" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-3 md:px-4 text-sm md:text-base rounded transition" :disabled="!botActive">
           Plan-Generierung testen
         </button>
-        <button @click="testUpdate" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded transition" :disabled="!botActive">
+        <button @click="testUpdate" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-3 md:px-4 text-sm md:text-base rounded transition" :disabled="!botActive">
           Änderungserkennung testen
         </button>
       </div>
@@ -98,6 +103,7 @@
 
 <script setup>
 import { ref, onMounted, computed, onUnmounted } from 'vue';
+import useToast from '../composables/useToast';
 
 // Zustandsvariablen
 const botActive = ref(false);
@@ -176,7 +182,7 @@ const forceUpdate = async () => {
 // Wartungsmodus umschalten
 const toggleMaintenanceMode = async () => {
   if (!botActive.value) {
-    alert('Der Bot ist nicht erreichbar. Wartungsmodus kann nicht geändert werden.');
+    showToast('Der Bot ist nicht erreichbar. Wartungsmodus kann nicht geändert werden.', 'warning');
     return;
   }
   
@@ -190,22 +196,19 @@ const toggleMaintenanceMode = async () => {
     const data = await response.json();
     if (data.success) {
       await fetchBotStatus(); // Aktualisieren des Status nach Änderung
-      alert(`Wartungsmodus wurde ${newState ? 'aktiviert' : 'deaktiviert'}`);
-      showToast(`Wartungsmodus ${newState ? 'aktiviert' : 'deaktiviert'}`, newState ? 'success' : 'info');
+      showToast(`Wartungsmodus wurde ${newState ? 'aktiviert' : 'deaktiviert'}`, newState ? 'warning' : 'success');
     } else {
       showToast('Fehler beim Ändern des Wartungsmodus: ' + data.error, 'error');
-      alert('Fehler beim Ändern des Wartungsmodus: ' + data.error);
     }
   } catch (error) {
     showToast('Fehler beim Ändern des Wartungsmodus: ' + error.message, 'error');
-    alert('Fehler beim Ändern des Wartungsmodus: ' + error.message);
   }
 };
 
 // Channel leeren
 const clearChannel = async () => {
   if (!botActive.value) {
-    alert('Der Bot ist nicht erreichbar. Channel kann nicht geleert werden.');
+    showToast('Der Bot ist nicht erreichbar. Channel kann nicht geleert werden.', 'error');
     return;
   }
   
@@ -221,20 +224,20 @@ const clearChannel = async () => {
     });
     const data = await response.json();
     if (data.success) {
-      alert('Der Channel wurde erfolgreich geleert');
+      showToast('Der Channel wurde erfolgreich geleert', 'success');
       await fetchBotStatus(); // Status aktualisieren
     } else {
-      alert('Fehler beim Leeren des Channels: ' + data.error);
+      showToast('Fehler beim Leeren des Channels: ' + data.error, 'error');
     }
   } catch (error) {
-    alert('Fehler beim Leeren des Channels: ' + error.message);
+    showToast('Fehler beim Leeren des Channels: ' + error.message, 'error');
   }
 };
 
 // Benachrichtigung testen
 const testNotification = async () => {
   if (!botActive.value) {
-    alert('Der Bot ist nicht erreichbar. Benachrichtigung kann nicht getestet werden.');
+    showToast('Der Bot ist nicht erreichbar. Benachrichtigung kann nicht getestet werden.', 'error');
     return;
   }
   
@@ -242,20 +245,20 @@ const testNotification = async () => {
     const response = await fetch('/api/bot/test-notification', { method: 'POST' });
     const data = await response.json();
     if (data.success) {
-      alert('Benachrichtigung wurde erfolgreich getestet');
+      showToast('Benachrichtigung wurde erfolgreich getestet', 'success');
       await fetchBotStatus(); // Status aktualisieren
     } else {
-      alert('Fehler beim Testen der Benachrichtigung: ' + data.error);
+      showToast('Fehler beim Testen der Benachrichtigung: ' + data.error, 'error');
     }
   } catch (error) {
-    alert('Fehler beim Testen der Benachrichtigung: ' + error.message);
+    showToast('Fehler beim Testen der Benachrichtigung: ' + error.message, 'error');
   }
 };
 
 // Plan-Generierung testen
 const testPlanGeneration = async () => {
   if (!botActive.value) {
-    alert('Der Bot ist nicht erreichbar. Plan-Generierung kann nicht getestet werden.');
+    showToast('Der Bot ist nicht erreichbar. Plan-Generierung kann nicht getestet werden.', 'error');
     return;
   }
   
@@ -263,20 +266,20 @@ const testPlanGeneration = async () => {
     const response = await fetch('/api/bot/test-plan', { method: 'POST' });
     const data = await response.json();
     if (data.success) {
-      alert('Plan-Generierung wurde erfolgreich getestet');
+      showToast('Plan-Generierung wurde erfolgreich getestet', 'success');
       await fetchBotStatus(); // Status aktualisieren
     } else {
-      alert('Fehler beim Testen der Plan-Generierung: ' + data.error);
+      showToast('Fehler beim Testen der Plan-Generierung: ' + data.error, 'error');
     }
   } catch (error) {
-    alert('Fehler beim Testen der Plan-Generierung: ' + error.message);
+    showToast('Fehler beim Testen der Plan-Generierung: ' + error.message, 'error');
   }
 };
 
 // Änderungserkennung testen
 const testUpdate = async () => {
   if (!botActive.value) {
-    alert('Der Bot ist nicht erreichbar. Änderungserkennung kann nicht getestet werden.');
+    showToast('Der Bot ist nicht erreichbar. Änderungserkennung kann nicht getestet werden.', 'error');
     return;
   }
   
@@ -284,13 +287,13 @@ const testUpdate = async () => {
     const response = await fetch('/api/bot/test-update', { method: 'POST' });
     const data = await response.json();
     if (data.success) {
-      alert('Änderungserkennung wurde erfolgreich getestet');
+      showToast('Änderungserkennung wurde erfolgreich getestet', 'success');
       await fetchBotStatus(); // Status aktualisieren
     } else {
-      alert('Fehler beim Testen der Änderungserkennung: ' + data.error);
+      showToast('Fehler beim Testen der Änderungserkennung: ' + data.error, 'error');
     }
   } catch (error) {
-    alert('Fehler beim Testen der Änderungserkennung: ' + error.message);
+    showToast('Fehler beim Testen der Änderungserkennung: ' + error.message, 'error');
   }
 };
 

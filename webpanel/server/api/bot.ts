@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { spawn } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import http from 'node:http';
 import { getQuery, readBody } from 'h3';
 
@@ -16,22 +17,22 @@ const writeFile = promisify(fs.writeFile);
 // Pfad zur .env-Datei im Hauptverzeichnis bestimmen
 const rootDir = path.resolve(process.cwd(), '..');
 const envFilePath = path.resolve(rootDir, '.env');
-const logFilePath = path.resolve(rootDir, 'logs', 'bot.log');
+const _logFilePath = path.resolve(rootDir, 'logs', 'bot.log');
 
 // Bot-Prozess steuern
-let botProcess: any = null;
+let botProcess: ChildProcess | null = null;
 
 // Bot stoppen
 const stopBot = () => {
-  return new Promise<void>(async (resolve) => {
+  return new Promise<void>((resolve) => {
     try {
       if (botProcess) {
         botProcess.kill();
         botProcess = null;
       }
       resolve();
-    } catch (error) {
-      console.error('Fehler beim Stoppen des Bots:', error);
+    } catch {
+      console.error('Fehler beim Stoppen des Bots:');
       resolve();
     }
   });
@@ -49,15 +50,27 @@ const startBot = () => {
       
       botProcess.unref(); // Vom Elternprozess lösen
       resolve();
-    } catch (error) {
-      console.error('Fehler beim Starten des Bots:', error);
+    } catch {
+      console.error('Fehler beim Starten des Bots:');
       resolve();
     }
   });
 };
 
+interface BotSettings {
+  planChannelId?: string;
+  notificationChannelId?: string;
+  updateRoleId?: string;
+  authorizedUsers?: string;
+  updateInterval?: number;
+  checkInterval?: number;
+  apiUrl?: string;
+  apiKey?: string;
+  debugMode?: boolean;
+}
+
 // Hilfsfunktion zum Lesen der Einstellungen aus der .env-Datei
-const readSettings = async () => {
+const readSettings = async (): Promise<BotSettings> => {
   try {
     const data = await readFile(envFilePath, 'utf8');
     const lines = data.split('\n');
@@ -86,14 +99,14 @@ const readSettings = async () => {
       apiKey: settings.api_key as string || '',
       debugMode: settings.DEBUG_MODE === 'true'
     };
-  } catch (error) {
-    console.error('Fehler beim Lesen der Einstellungen:', error);
+  } catch {
+    console.error('Fehler beim Lesen der Einstellungen:');
     return {};
   }
 };
 
 // Hilfsfunktion zum Schreiben der Einstellungen in die .env-Datei
-const writeSettings = async (settings: any) => {
+const writeSettings = async (settings: BotSettings): Promise<boolean> => {
   try {
     // Vorhandene .env-Datei lesen, um Kommentare zu erhalten
     const currentData = await readFile(envFilePath, 'utf8');
@@ -143,14 +156,18 @@ const writeSettings = async (settings: any) => {
     
     await writeFile(envFilePath, updatedLines.join('\n'));
     return true;
-  } catch (error) {
-    console.error('Fehler beim Speichern der Einstellungen:', error);
+  } catch {
+    console.error('Fehler beim Speichern der Einstellungen:');
     return false;
   }
 };
 
+interface ApiResponse {
+  [key: string]: unknown;
+}
+
 // Führt API-Anfrage an den Bot durch
-const callBotAPI = async (endpoint: string, method: string = 'GET', body?: any): Promise<any> => {
+const callBotAPI = async (endpoint: string, method = 'GET', body?: Record<string, unknown>): Promise<ApiResponse> => {
   const apiPort = process.env.WEB_API_PORT || 3001;
   const apiUrl = `http://localhost:${apiPort}${endpoint}`;
   
@@ -176,7 +193,7 @@ const callBotAPI = async (endpoint: string, method: string = 'GET', body?: any):
         try {
           const parsedData = JSON.parse(data);
           resolve(parsedData);
-        } catch (error) {
+        } catch {
           reject(new Error('Invalid JSON response'));
         }
       });
@@ -194,11 +211,22 @@ const callBotAPI = async (endpoint: string, method: string = 'GET', body?: any):
   });
 };
 
+interface BotStatus {
+  active: boolean;
+  maintenanceMode: boolean;
+  lastUpdate: string;
+  recentActivities: Array<{
+    type: string;
+    message: string;
+    timestamp: string;
+  }>;
+}
+
 // Prüft den tatsächlichen Bot-Status, indem die API-Verbindung getestet wird
-const checkBotStatus = async (): Promise<any> => {
+const checkBotStatus = async (): Promise<BotStatus> => {
   try {
     // Versuche die Statusabfrage an den Bot zu senden
-    const botStatus = await callBotAPI('/api/bot/status');
+    const botStatus = await callBotAPI('/api/bot/status') as unknown as BotStatus;
     
     // Wenn wir hier sind, ist der Bot erreichbar
     return {
@@ -223,7 +251,7 @@ const checkBotStatus = async (): Promise<any> => {
         })
       }]
     };
-  } catch (error) {
+  } catch {
     // Bot ist nicht erreichbar
     return {
       active: false,
@@ -259,7 +287,7 @@ export default defineEventHandler(async (event) => {
         success: true,
         ...botStatus
       };
-    } catch (error) {
+    } catch {
       return {
         success: true,
         active: false,
@@ -277,15 +305,16 @@ export default defineEventHandler(async (event) => {
     try {
       const settings = await readSettings();
       return { success: true, settings };
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Einstellungen konnten nicht geladen werden' };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Einstellungen konnten nicht geladen werden';
+      return { success: false, error: errorMessage };
     }
   }
   
   // POST /api/bot/settings - Bot-Einstellungen speichern
   if (method === 'POST' && path === '/api/bot/settings') {
     try {
-      const body = await readBody(event);
+      const body = await readBody(event) as BotSettings;
       const success = await writeSettings(body);
       
       if (success) {
@@ -293,8 +322,9 @@ export default defineEventHandler(async (event) => {
       } else {
         return { success: false, error: 'Einstellungen konnten nicht gespeichert werden' };
       }
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Einstellungen konnten nicht gespeichert werden' };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Einstellungen konnten nicht gespeichert werden';
+      return { success: false, error: errorMessage };
     }
   }
   
@@ -308,15 +338,16 @@ export default defineEventHandler(async (event) => {
       }, 1000);
       
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Bot konnte nicht neu gestartet werden' };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Bot konnte nicht neu gestartet werden';
+      return { success: false, error: errorMessage };
     }
   }
   
   // POST /api/bot/maintenance - Wartungsmodus umschalten
   if (method === 'POST' && path === '/api/bot/maintenance') {
     try {
-      const body = await readBody(event);
+      const body = await readBody(event) as { enable: boolean };
       const { enable } = body;
       
       // Versuchen, den Wartungsmodus über die Bot-API umzuschalten
@@ -330,8 +361,9 @@ export default defineEventHandler(async (event) => {
       await callBotAPI(endpoint, 'POST');
       
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Wartungsmodus konnte nicht umgeschaltet werden' };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Wartungsmodus konnte nicht umgeschaltet werden';
+      return { success: false, error: errorMessage };
     }
   }
   
@@ -348,8 +380,9 @@ export default defineEventHandler(async (event) => {
       await callBotAPI('/api/bot/update/force', 'POST');
       
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Update konnte nicht erzwungen werden' };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Update konnte nicht erzwungen werden';
+      return { success: false, error: errorMessage };
     }
   }
   
@@ -366,8 +399,9 @@ export default defineEventHandler(async (event) => {
       await callBotAPI('/api/bot/test/notification', 'POST');
       
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Benachrichtigung konnte nicht getestet werden' };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Benachrichtigung konnte nicht getestet werden';
+      return { success: false, error: errorMessage };
     }
   }
   
@@ -384,8 +418,9 @@ export default defineEventHandler(async (event) => {
       await callBotAPI('/api/bot/test/plan', 'POST');
       
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Plan-Generierung konnte nicht getestet werden' };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Plan-Generierung konnte nicht getestet werden';
+      return { success: false, error: errorMessage };
     }
   }
   
@@ -402,8 +437,9 @@ export default defineEventHandler(async (event) => {
       await callBotAPI('/api/bot/test/update', 'POST');
       
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Änderungserkennung konnte nicht getestet werden' };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Änderungserkennung konnte nicht getestet werden';
+      return { success: false, error: errorMessage };
     }
   }
   
@@ -416,16 +452,24 @@ export default defineEventHandler(async (event) => {
         return { success: false, error: 'Bot ist nicht erreichbar' };
       }
       
-      const body = await readBody(event);
+      const body = await readBody(event) as { channelId: string };
       const { channelId } = body;
       
       // API-Endpunkt für Channel-Leeren aufrufen
       await callBotAPI('/api/bot/channel/clear', 'POST', { channelId });
       
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Channel konnte nicht geleert werden' };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Channel konnte nicht geleert werden';
+      return { success: false, error: errorMessage };
     }
+  }
+  
+  interface LogEntry {
+    timestamp: string;
+    level: string;
+    message: string;
+    details?: string;
   }
   
   // GET /api/bot/logs - Logs abrufen
@@ -440,18 +484,18 @@ export default defineEventHandler(async (event) => {
       // Wenn Bot läuft, versuche echte Logs abzurufen
       if (botStatus.active) {
         try {
-          const logsResponse = await callBotAPI(`/api/bot/logs?type=${type}`, 'GET');
+          const logsResponse = await callBotAPI(`/api/bot/logs?type=${type}`, 'GET') as unknown as { logs: LogEntry[] };
           if (logsResponse && logsResponse.logs) {
             return { success: true, logs: logsResponse.logs };
           }
-        } catch (err) {
-          console.error('Fehler beim Abrufen der Bot-Logs:', err);
+        } catch {
+          console.error('Fehler beim Abrufen der Bot-Logs:');
           // Bei Fehler fallen wir auf Mock-Logs zurück
         }
       }
       
       // Fallback auf Mock-Logs
-      const mockLogs = [
+      const mockLogs: LogEntry[] = [
         { timestamp: '03.04.2025 10:15:00', level: 'info', message: 'Bot gestartet' },
         { timestamp: '03.04.2025 10:15:10', level: 'debug', message: 'Vertretungsplan wird abgerufen', details: 'URL: https://api.example.com/vertretungsplan' },
         { timestamp: '03.04.2025 10:15:15', level: 'info', message: 'Vertretungsplan erfolgreich aktualisiert' },
@@ -470,8 +514,9 @@ export default defineEventHandler(async (event) => {
         logs: filteredLogs, 
         note: botStatus.active ? 'Echte Logs konnten nicht abgerufen werden' : 'Bot ist nicht erreichbar, verwende Mock-Logs'
       };
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Logs konnten nicht geladen werden' };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Logs konnten nicht geladen werden';
+      return { success: false, error: errorMessage };
     }
   }
   
@@ -488,18 +533,19 @@ export default defineEventHandler(async (event) => {
       try {
         await callBotAPI('/api/bot/logs', 'DELETE');
         return { success: true };
-      } catch (err) {
+      } catch {
         return { success: false, error: 'Logs konnten nicht gelöscht werden' };
       }
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Logs konnten nicht gelöscht werden' };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Logs konnten nicht gelöscht werden';
+      return { success: false, error: errorMessage };
     }
   }
   
   // POST /api/bot/log-level - Log-Level setzen
   if (method === 'POST' && path === '/api/bot/log-level') {
     try {
-      const body = await readBody(event);
+      const body = await readBody(event) as { level: string };
       const { level } = body;
       
       // Prüfen, ob der Bot läuft
@@ -512,11 +558,12 @@ export default defineEventHandler(async (event) => {
       try {
         await callBotAPI('/api/bot/log-level', 'POST', { level });
         return { success: true };
-      } catch (err) {
+      } catch {
         return { success: false, error: 'Log-Level konnte nicht gesetzt werden' };
       }
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Log-Level konnte nicht gesetzt werden' };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Log-Level konnte nicht gesetzt werden';
+      return { success: false, error: errorMessage };
     }
   }
   

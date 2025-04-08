@@ -7,12 +7,20 @@ export interface Toast {
   duration: number
 }
 
-export default function useToast() {
-  const toasts = reactive<Toast[]>([])
-  let toastIdCounter = ref(0)
+// Create global state using Vue's reactivity to ensure it's compatible with SSR
+let __toasts: Toast[] | null = null;
+let __counter = 0;
 
+export default function useToast() {
+  // Initialize the state only once
+  if (!__toasts) {
+    __toasts = reactive<Toast[]>([]);
+  }
+  
+  const toasts = __toasts;
+  
   const showToast = (message: string, type: Toast['type'] = 'info', duration: number = 5000) => {
-    const id = toastIdCounter.value++
+    const id = __counter++;
     const toast = {
       id,
       message,
@@ -23,8 +31,8 @@ export default function useToast() {
     // Add the toast to the list
     toasts.push(toast)
     
-    // Set a timer to remove the toast
-    if (duration > 0) {
+    // Only set timeout on client side
+    if (import.meta.client && duration > 0) {
       setTimeout(() => {
         removeToast(id)
       }, duration)
