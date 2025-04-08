@@ -70,7 +70,7 @@
               label="Debug-Modus aktivieren"
             />
           </div>
-          <p class="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">Im Debug-Modus werden ausführliche Logs angezeigt und Test-Befehle freigeschaltet</p>
+          <p class="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">Im Debug-Modus werden ausführliche Discord Nachrichten angezeigt und Test-Befehle freigeschaltet</p>
         </div>
         
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-gray-200 dark:border-gray-700 gap-3">
