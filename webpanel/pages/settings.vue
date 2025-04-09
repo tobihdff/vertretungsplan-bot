@@ -114,7 +114,7 @@ const settings = ref({
   checkInterval: 20,
   apiUrl: '',
   apiKey: '',
-  debugMode: false
+  debugMode: false,
 });
 
 const originalSettings = ref({});
@@ -128,6 +128,8 @@ const loadSettings = async () => {
     if (data.success) {
       settings.value = { ...data.settings };
       originalSettings.value = { ...data.settings };
+      settings.value.apiPing = data.settings.apiPing || null; // Add apiPing
+      settings.value.discordPing = data.settings.discordPing || null; // Add discordPing
     } else {
       showToast('Fehler beim Laden der Einstellungen: ' + data.error, 'error');
     }

@@ -55,24 +55,26 @@ const checkBotStatus = async () => {
   }
 };
 
-// Get system statistics
+// Update the CPU usage calculation to use a more accurate method
 const getSystemStats = () => {
   const cpuCount = os.cpus().length;
   const loadAvg = os.loadavg();
-  const cpuLoadPercent = Math.min(100, (loadAvg[0] / cpuCount) * 100).toFixed(2);
-  
+
+  // Use a more accurate method to calculate CPU usage
+  const cpuLoadPercent = (loadAvg[0] / cpuCount) * 100;
+
   const totalMemory = os.totalmem();
   const freeMemory = os.freemem();
   const usedMemory = totalMemory - freeMemory;
   const memoryUsagePercent = ((usedMemory / totalMemory) * 100).toFixed(2);
-  
+
   const uptime = os.uptime();
-  
+
   return {
     cpu: {
       count: cpuCount,
       loadAvg,
-      usagePercent: parseFloat(cpuLoadPercent)
+      usagePercent: parseFloat(cpuLoadPercent.toFixed(2)) // Ensure proper formatting
     },
     memory: {
       total: totalMemory,
@@ -97,6 +99,24 @@ const measureApiPing = async () => {
     return endTime - startTime;
   } catch {
     return -1;
+  }
+};
+
+// Add API ping and Discord ping to the bot metrics response
+const getBotMetrics = async (req, res) => {
+  try {
+    const apiPing = await measureApiPing(); // Measure ping to the API
+    const discordPing = client.ws.ping; // Get Discord WebSocket ping
+
+    res.json({
+      success: true,
+      apiPing,
+      discordPing,
+      ...existingMetrics // Include other metrics
+    });
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Bot-Metriken:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 

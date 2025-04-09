@@ -288,7 +288,7 @@ async function loadStats(isInitial = false) {
   try {
     // Drosselung: Nicht öfter als alle 2 Sekunden aktualisieren
     const now = Date.now();
-    if (now - lastUpdateTime < 2000 && !isInitial) {
+    if (now - lastUpdateTime < 30000 && !isInitial) {
       return;
     }
     lastUpdateTime = now;

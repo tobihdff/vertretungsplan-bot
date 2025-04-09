@@ -94,6 +94,16 @@
             <span :class="{'mr-0': isCollapsed, 'mr-2': !isCollapsed}">📝</span>
             <span :class="{'opacity-0 w-0 overflow-hidden': isCollapsed}">Logs</span>
           </NuxtLink>
+          <NuxtLink 
+            to="/stats" 
+            class="block px-4 py-2 rounded text-white hover:bg-blue-800 dark:hover:bg-blue-800/60 transition flex items-center"
+            :class="{'justify-center': isCollapsed}"
+            @click="closeMenuOnMobile"
+            :title="isCollapsed ? 'Statistiken' : ''"
+          >
+            <span :class="{'mr-0': isCollapsed, 'mr-2': !isCollapsed}">📈</span>
+            <span :class="{'opacity-0 w-0 overflow-hidden': isCollapsed}">Statistiken</span>
+          </NuxtLink>
         </nav>
         
         <!-- Darkmode Toggle -->
