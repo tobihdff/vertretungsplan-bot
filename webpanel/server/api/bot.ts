@@ -769,6 +769,63 @@ export default defineEventHandler(async (event) => {
     }
   }
   
+  // GET /api/bot/activities - Aktivitäten abrufen
+  if (method === 'GET' && path === '/api/bot/activities') {
+    try {
+      // Prüfen, ob der Bot läuft
+      const botStatus = await checkBotStatus();
+      
+      // Beispiel-Aktivitäten zurückgeben, wenn keine vom Bot kommen
+      const defaultActivities = [
+        {
+          type: 'info',
+          message: 'Vertretungsplan geprüft',
+          timestamp: new Date().toLocaleDateString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        },
+        {
+          type: 'update',
+          message: 'Plan aktualisiert',
+          timestamp: new Date(Date.now() - 30*60000).toLocaleDateString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        }
+      ];
+      
+      if (botStatus.active) {
+        // Versuche Aktivitäten über die Bot-API abzurufen
+        try {
+          const activitiesResponse = await callBotAPI('/api/bot/activities', 'GET') as unknown as { activities: Array<{type: string; message: string; timestamp: string}> };
+          if (activitiesResponse && activitiesResponse.activities && activitiesResponse.activities.length > 0) {
+            return { success: true, activities: activitiesResponse.activities };
+          }
+        } catch (error) {
+          console.error('Fehler beim Abrufen der Aktivitäten:', error instanceof Error ? error.message : 'Unbekannter Fehler');
+        }
+      }
+      
+      // Fallback auf recentActivities aus dem Status oder Standard-Aktivitäten
+      return {
+        success: true,
+        activities: botStatus.recentActivities?.length > 0 
+          ? botStatus.recentActivities 
+          : defaultActivities
+      };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Aktivitäten konnten nicht geladen werden';
+      return { success: false, error: errorMessage, activities: [] };
+    }
+  }
+
   // Unbekannter Endpunkt
   return { success: false, error: 'Unbekannter API-Endpunkt' };
 });

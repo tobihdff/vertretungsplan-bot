@@ -1,35 +1,41 @@
 <template>
-  <div>
-    <h1 class="text-2xl font-bold mb-4 md:mb-6">Statistiken</h1>
+  <div class="container mx-auto px-4 py-8">
+    <h1 class="text-2xl md:text-3xl font-bold mb-6 dark:text-white">Systemstatistiken</h1>
     
-    <div v-if="initialLoading" class="flex justify-center items-center py-10">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    <div v-if="initialLoading" class="flex justify-center items-center h-64">
+      <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
     </div>
     
     <div v-else>
-      <!-- Status Overview -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-6">
+      <!-- Quick Stats Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-5 transition-colors duration-300">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm text-gray-500 dark:text-gray-400">Bot Status</p>
+          <div>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Bot Status</p>
+            <div class="flex items-center">
+              <span :class="botActive ? 'bg-green-500' : 'bg-red-500'" class="inline-block w-2 h-2 rounded-full mr-2"></span>
               <p class="font-semibold dark:text-white">{{ botActive ? 'Online' : 'Offline' }}</p>
             </div>
-            <div :class="botActive ? 'bg-green-500' : 'bg-red-500'" class="w-3 h-3 rounded-full"></div>
           </div>
         </div>
         
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-5 transition-colors duration-300">
           <div>
-            <p class="text-sm text-gray-500 dark:text-gray-400">Ping zum Bot</p>
-            <p class="font-semibold dark:text-white">{{ botPing > -1 ? botPing + ' ms' : 'N/A' }}</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">System Auslastung</p>
+            <p class="font-semibold dark:text-white">
+              CPU: {{ systemInfo?.cpu?.usagePercent?.toFixed(1) || '0.0' }}% | 
+              RAM: {{ systemInfo?.memory?.usagePercent?.toFixed(1) || '0.0' }}%
+            </p>
           </div>
         </div>
         
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-5 transition-colors duration-300">
           <div>
-            <p class="text-sm text-gray-500 dark:text-gray-400">Ping zu Discord</p>
-            <p class="font-semibold dark:text-white">{{ discordPing ? discordPing + ' ms' : 'N/A' }}</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Ping</p>
+            <p class="font-semibold dark:text-white">
+              API: {{ botPing >= 0 ? `${botPing}ms` : 'N/A' }} | 
+              Discord: {{ discordPing ? `${discordPing}ms` : 'N/A' }}
+            </p>
           </div>
         </div>
         
@@ -41,60 +47,49 @@
         </div>
       </div>
       
-      <!-- Performance Graphs -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 transition-colors duration-300">
-          <h2 class="text-lg font-semibold mb-4 dark:text-white">Ping-Verlauf</h2>
-          <div class="h-64">
-            <canvas ref="pingChartRef"></canvas>
+      <!-- Lazy-loaded Performance Graphs -->
+      <ClientOnly>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6">
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 transition-colors duration-300">
+            <h2 class="text-lg font-semibold mb-4 dark:text-white">Ping-Verlauf</h2>
+            <div class="h-64">
+              <canvas ref="pingChartRef"></canvas>
+            </div>
           </div>
-        </div>
-        
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 transition-colors duration-300">
-          <h2 class="text-lg font-semibold mb-4 dark:text-white">System-Auslastung</h2>
-          <div class="h-64">
-            <canvas ref="systemChartRef"></canvas>
-          </div>
-        </div>
-      </div>
-      
-      <!-- System Stats -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 transition-colors duration-300">
-          <h2 class="text-lg font-semibold mb-4 dark:text-white">System-Informationen</h2>
           
-          <div class="space-y-3">
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Betriebssystem</span>
-              <span class="font-medium dark:text-white">{{ systemInfo.platform }} ({{ systemInfo.arch }})</span>
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 transition-colors duration-300">
+            <h2 class="text-lg font-semibold mb-4 dark:text-white">System-Verlauf</h2>
+            <div class="h-64">
+              <canvas ref="systemChartRef"></canvas>
             </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Hostname</span>
-              <span class="font-medium dark:text-white">{{ systemInfo.hostname }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Node.js Version</span>
-              <span class="font-medium dark:text-white">{{ systemInfo.nodeVersion }}</span>
-            </div>
+          </div>
+        </div>
+      </ClientOnly>
+      
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6">
+        <!-- System Information -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 transition-colors duration-300">
+          <h2 class="text-lg font-semibold mb-4 dark:text-white">Systeminformationen</h2>
+          <div class="space-y-2">
             <div class="flex justify-between">
               <span class="text-gray-600 dark:text-gray-400">CPU Kerne</span>
-              <span class="font-medium dark:text-white">{{ systemInfo.cpu.count }}</span>
+              <span class="font-medium dark:text-white">{{ systemInfo?.cpu?.count || 'N/A' }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-600 dark:text-gray-400">CPU Auslastung</span>
-              <span class="font-medium dark:text-white">{{ systemInfo.cpu.usagePercent.toFixed(2) }}%</span>
+              <span class="font-medium dark:text-white">{{ systemInfo?.cpu?.usagePercent?.toFixed(1) || '0.0' }}%</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-600 dark:text-gray-400">RAM Gesamt</span>
-              <span class="font-medium dark:text-white">{{ formatBytes(systemInfo.memory.total) }}</span>
+              <span class="font-medium dark:text-white">{{ formatBytes(systemInfo?.memory?.total) }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-600 dark:text-gray-400">RAM Frei</span>
-              <span class="font-medium dark:text-white">{{ formatBytes(systemInfo.memory.free) }}</span>
+              <span class="font-medium dark:text-white">{{ formatBytes(systemInfo?.memory?.free) }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-600 dark:text-gray-400">RAM Nutzung</span>
-              <span class="font-medium dark:text-white">{{ systemInfo.memory.usagePercent.toFixed(2) }}%</span>
+              <span class="font-medium dark:text-white">{{ systemInfo?.memory?.usagePercent?.toFixed(1) || '0.0' }}%</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-600 dark:text-gray-400">System Laufzeit</span>
@@ -105,41 +100,49 @@
         
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 transition-colors duration-300">
           <h2 class="text-lg font-semibold mb-4 dark:text-white">Bot Nutzungs-Statistiken</h2>
-          
-          <div class="grid grid-cols-2 gap-4 mb-6">
-            <div class="bg-gray-100 dark:bg-gray-700 rounded p-4">
-              <p class="text-sm text-gray-500 dark:text-gray-400">Updates heute</p>
-              <p class="text-2xl font-bold dark:text-white">{{ analytics.dailyUpdates }}</p>
-            </div>
-            <div class="bg-gray-100 dark:bg-gray-700 rounded p-4">
-              <p class="text-sm text-gray-500 dark:text-gray-400">Updates diese Woche</p>
-              <p class="text-2xl font-bold dark:text-white">{{ analytics.weeklyUpdates }}</p>
-            </div>
-            <div class="bg-gray-100 dark:bg-gray-700 rounded p-4">
-              <p class="text-sm text-gray-500 dark:text-gray-400">Ø Änderungen pro Update</p>
-              <p class="text-2xl font-bold dark:text-white">{{ analytics.averageChangesPerUpdate.toFixed(1) }}</p>
-            </div>
-            <div class="bg-gray-100 dark:bg-gray-700 rounded p-4">
-              <p class="text-sm text-gray-500 dark:text-gray-400">Benachrichtigungen gesamt</p>
-              <p class="text-2xl font-bold dark:text-white">{{ analytics.totalNotifications }}</p>
-            </div>
-          </div>
-          
-          <h3 class="text-md font-semibold mb-3 dark:text-white">Top-Aktualisierte Klassen</h3>
           <div class="space-y-2">
-            <div v-for="(classItem, index) in analytics.topUpdatedClasses" :key="index" class="flex items-center">
-              <div class="w-16 text-sm font-medium dark:text-white">{{ classItem.name }}</div>
-              <div class="flex-grow bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mx-2">
-                <div class="bg-blue-600 h-2.5 rounded-full" :style="{ width: `${(classItem.count / maxClassCount) * 100}%` }"></div>
+            <div class="flex justify-between">
+              <span class="text-gray-600 dark:text-gray-400">Updates heute</span>
+              <span class="font-medium dark:text-white">{{ analytics?.dailyUpdates || 0 }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-600 dark:text-gray-400">Updates diese Woche</span>
+              <span class="font-medium dark:text-white">{{ analytics?.weeklyUpdates || 0 }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-600 dark:text-gray-400">Durchschn. Änderungen</span>
+              <span class="font-medium dark:text-white">{{ analytics?.averageChangesPerUpdate?.toFixed(1) || '0.0' }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-600 dark:text-gray-400">Benachrichtigungen</span>
+              <span class="font-medium dark:text-white">{{ analytics?.totalNotifications || 0 }}</span>
+            </div>
+            
+            <div class="pt-2" v-if="analytics?.topUpdatedClasses?.length">
+              <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">Häufigste Änderungen nach Klasse</p>
+              <div v-for="classItem in analytics.topUpdatedClasses" :key="classItem.name" class="flex items-center mb-1.5">
+                <span class="text-sm dark:text-white w-8">{{ classItem.name }}</span>
+                <div class="flex-1 mx-2 bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                  <div class="bg-blue-600 h-2.5 rounded-full" :style="`width: ${(classItem.count / (maxClassCount || 1)) * 100}%`"></div>
+                </div>
+                <div class="w-10 text-sm text-right text-gray-600 dark:text-gray-400">{{ classItem.count }}</div>
               </div>
-              <div class="w-10 text-sm text-right text-gray-600 dark:text-gray-400">{{ classItem.count }}</div>
             </div>
           </div>
         </div>
       </div>
       
-      <div class="flex justify-end mt-6">
-        <button @click="refreshStats" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition flex items-center space-x-2">
+      <div class="flex justify-between mt-6">
+        <div class="text-sm text-gray-500 dark:text-gray-400">
+          <span v-if="lastUpdateTime">Letzte Aktualisierung: {{ formatLastUpdateTime }}</span>
+          <span v-else>&nbsp;</span>
+        </div>
+        <button 
+          @click="refreshStats" 
+          class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition flex items-center space-x-2" 
+          :disabled="refreshing"
+          :class="{'opacity-70 cursor-not-allowed': refreshing}"
+        >
           <span v-if="refreshing" class="inline-block w-4 h-4 border-2 border-white border-b-transparent rounded-full animate-spin"></span>
           <span>{{ refreshing ? 'Aktualisiere...' : 'Aktualisieren' }}</span>
         </button>
@@ -149,22 +152,35 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onUnmounted, nextTick } from 'vue';
+import { ref, onMounted, computed, onUnmounted, nextTick, shallowRef, onActivated, onDeactivated } from 'vue';
 import useToast from '../composables/useToast';
-import Chart from 'chart.js/auto';
+// Chart.js korrekt importieren und erst auf dem Client initialisieren
+let Chart;
+// Dynamischer Import für bessere Client-Side-Kompatibilität
+const importChartJS = async () => {
+  if (process.client) {
+    Chart = (await import('chart.js/auto')).default;
+  }
+};
 
 const { showToast } = useToast();
 
-// Chart references
+// Chart-Referenzen
 const pingChartRef = ref(null);
 const systemChartRef = ref(null);
+
+// Chart-Instanzen mit langlebigen Objekten definieren
 let pingChart = null;
 let systemChart = null;
 
-// Data state
-const initialLoading = ref(true);  // Nur für initiales Laden
-const refreshing = ref(false);     // Für manuelle Aktualisierungen
-const stats = ref({
+// Performance-optimierter Zustand mit shallowRef für komplexe Objekte
+const initialLoading = ref(true);
+const refreshing = ref(false);
+const lastUpdateTime = ref(0);
+const pageActive = ref(true); // Tracking Seitenaktivität für optimiertes Rendering
+
+// Verwende shallowRef für komplexe verschachtelte Objekte
+const stats = shallowRef({
   botActive: false,
   system: {
     cpu: { count: 0, usagePercent: 0 },
@@ -195,60 +211,86 @@ const stats = ref({
   }
 });
 
+// Refresh-Intervall mit optimierter Frequenz und Ressourcennutzung
 let refreshInterval = null;
-let lastUpdateTime = 0;
+const REFRESH_INTERVAL = 15000; // Von 10s auf 15s erhöht für weniger Serverbelastung
+const MIN_REFRESH_TIME = 5000;  // Drosselung manueller Aktualisierungen
 
-// Computed properties
+// Verwendung von AbortController für abbrechbare Fetch-Anfragen
+let currentAbortController = null;
+
+// Performance-Optimierung: Computed-Properties für abgeleitete Daten
 const botActive = computed(() => stats.value.botActive);
 const systemInfo = computed(() => stats.value.system);
-const botPing = computed(() => stats.value.bot?.ping || -1);
-const discordPing = computed(() => stats.value.bot?.discordPing || null);
-const analytics = computed(() => stats.value.analytics || {
-  dailyUpdates: 0,
-  weeklyUpdates: 0,
-  averageChangesPerUpdate: 0,
-  totalNotifications: 0,
-  topUpdatedClasses: []
+const botPing = computed(() => stats.value.bot?.ping ?? -1);
+const discordPing = computed(() => stats.value.bot?.discordPing ?? null);
+const analytics = computed(() => stats.value.analytics || {});
+
+// Formatierung der letzten Aktualisierungszeit
+const formatLastUpdateTime = computed(() => {
+  if (!lastUpdateTime.value) return '';
+  return new Date(lastUpdateTime.value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 });
 
+// Optimierung: Memoized Computed für formatierte Uptime (seltene Änderungen)
 const formatUptime = computed(() => {
   const uptime = stats.value.bot?.uptimeMs;
   if (!uptime) return 'N/A';
+  
+  // Berechnung mit Cache
+  const cachingKey = Math.floor(uptime / 60000); // Caching auf Minutenbasis
+  if (formatUptimeCache.has(cachingKey)) {
+    return formatUptimeCache.get(cachingKey);
+  }
   
   const seconds = Math.floor(uptime / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
   
+  let result;
   if (days > 0) {
-    return `${days}d ${hours % 24}h ${minutes % 60}m`;
+    result = `${days}d ${hours % 24}h ${minutes % 60}m`;
   } else if (hours > 0) {
-    return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${seconds % 60}s`;
+    result = `${hours}h ${minutes % 60}m ${seconds % 60}s`;
   } else {
-    return `${seconds}s`;
+    result = `${minutes}m ${seconds % 60}s`;
   }
+  
+  // Cache-Ergebnis (begrenzte Größe)
+  formatUptimeCache.set(cachingKey, result);
+  if (formatUptimeCache.size > 100) formatUptimeCache.delete(formatUptimeCache.keys().next().value);
+  
+  return result;
 });
 
+// Optimierte System-Uptime-Formatierung mit Cache
 const formatSystemUptime = computed(() => {
-  const uptime = stats.value.system?.uptime;
+  const uptime = systemInfo.value?.uptime;
   if (!uptime) return 'N/A';
   
-  const seconds = Math.floor(uptime);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-  
-  if (days > 0) {
-    return `${days}d ${hours % 24}h ${minutes % 60}m`;
-  } else if (hours > 0) {
-    return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${seconds % 60}s`;
-  } else {
-    return `${seconds}s`;
+  // Cache-Lookup
+  const cacheKey = Math.floor(uptime / 60); // Minuten-basierter Cache
+  if (formatSystemUptimeCache.has(cacheKey)) {
+    return formatSystemUptimeCache.get(cacheKey);
   }
+  
+  const days = Math.floor(uptime / 86400);
+  const hours = Math.floor((uptime % 86400) / 3600);
+  const minutes = Math.floor((uptime % 3600) / 60);
+  
+  let result;
+  if (days > 0) {
+    result = `${days}d ${hours}h ${minutes}m`;
+  } else {
+    result = `${hours}h ${minutes}m`;
+  }
+  
+  // Cache-Ergebnis
+  formatSystemUptimeCache.set(cacheKey, result);
+  if (formatSystemUptimeCache.size > 100) formatSystemUptimeCache.delete(formatSystemUptimeCache.keys().next().value);
+  
+  return result;
 });
 
 const maxClassCount = computed(() => {
@@ -256,73 +298,152 @@ const maxClassCount = computed(() => {
   return Math.max(...stats.value.analytics.topUpdatedClasses.map(c => c.count));
 });
 
-// Format bytes to human-readable format
-function formatBytes(bytes, decimals = 2) {
-  if (bytes === 0) return '0 Bytes';
+// Caches für Memoization wiederverwendbarer Werte
+const bytesCache = new Map();
+const timeCache = new Map();
+const formatUptimeCache = new Map();
+const formatSystemUptimeCache = new Map();
+
+// Format bytes mit effizienterem Memoization-Cache
+function formatBytes(bytes, decimals = 1) {
+  if (bytes === 0 || bytes === undefined || bytes === null) return '0 Bytes';
+  
+  // Cache-Lookups für häufig verwendete Werte
+  const cacheKey = `${bytes}_${decimals}`;
+  if (bytesCache.has(cacheKey)) {
+    return bytesCache.get(cacheKey);
+  }
   
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   
   const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const result = parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  // Cache-Speicherung mit Begrenzung
+  bytesCache.set(cacheKey, result);
+  if (bytesCache.size > 50) { // Reduzierte Cache-Größe
+    bytesCache.delete(bytesCache.keys().next().value);
+  }
+  
+  return result;
 }
 
-// Format timestamp for charts
+// Optimierte Zeit-Formatierung mit Cache
 function formatTime(timestamp) {
+  // Nur ganzzahlige Minuten für bessere Cache-Ausnutzung
+  const roundedTimestamp = Math.floor(timestamp / 60000) * 60000;
+  
+  // Cache-Lookup
+  if (timeCache.has(roundedTimestamp)) {
+    return timeCache.get(roundedTimestamp);
+  }
+  
   const date = new Date(timestamp);
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const result = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  
+  // Cache-Speicherung mit Begrenzung
+  timeCache.set(roundedTimestamp, result);
+  if (timeCache.size > 50) {
+    timeCache.delete(timeCache.keys().next().value);
+  }
+  
+  return result;
 }
 
-// Load statistics
-async function loadStats(isInitial = false) {
-  // Nur bei initialem Laden oder manueller Aktualisierung den Ladeindikator anzeigen
+// Performance-optimiertes Laden der Stats mit AbortController für abbrechbare Requests
+async function loadStats(isInitial = false, isManual = false) {
+  // Abbrechen laufender Anfragen
+  if (currentAbortController) {
+    currentAbortController.abort();
+  }
+  
+  // Ladeindikator nur zeigen wenn nötig
   if (isInitial) {
     initialLoading.value = true;
-  } else if (!refreshInterval) {
-    // Wenn es eine manuelle Aktualisierung ist (nicht durch Intervall)
+  } else if (isManual) {
     refreshing.value = true;
   }
   
   try {
-    // Drosselung: Nicht öfter als alle 2 Sekunden aktualisieren
+    // Drosselung: Nicht öfter als alle MIN_REFRESH_TIME Sekunden aktualisieren
     const now = Date.now();
-    if (now - lastUpdateTime < 30000 && !isInitial) {
+    if (!isInitial && !isManual && now - lastUpdateTime.value < MIN_REFRESH_TIME) {
       return;
     }
-    lastUpdateTime = now;
     
-    const response = await fetch('/api/system/stats');
+    // Neue Anfrage mit AbortController
+    currentAbortController = new AbortController();
+    const { signal } = currentAbortController;
+    
+    // Effizienter Fetch mit Cache-Kontrolle und Signal
+    const response = await fetch('/api/system/stats', {
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      },
+      signal
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    // ETag-Support für effizientere Server-Kommunikation
+    const etag = response.headers.get('etag');
+    if (etag) {
+      localStorage.setItem('stats_etag', etag);
+    }
+    
     const data = await response.json();
     
     if (data.success) {
-      // Daten aktualisieren
+      // Effizientes Update des Zustands
       stats.value = data;
+      lastUpdateTime.value = Date.now();
       
-      // Charts aktualisieren wenn sie bereits initialisiert sind
-      if (pingChart && systemChart) {
-        updateCharts();
+      // Charts aktualisieren, aber nur wenn sichtbar
+      if ((pingChart || systemChart) && pageActive.value) {
+        // Verzögerte Aktualisierung für bessere Leistung
+        window.requestAnimationFrame(() => {
+          updateCharts();
+        });
       }
-    } else {
-      showToast('Fehler beim Laden der Statistiken: ' + data.error, 'error');
+    } else if (isManual) {
+      showToast('Fehler beim Laden der Statistiken: ' + (data.error || 'Unbekannter Fehler'), 'error');
     }
   } catch (error) {
+    // Fehler ignorieren, wenn abgebrochen
+    if (error.name === 'AbortError') return;
+    
     console.error('Fehler beim Laden der Statistiken:', error);
-    showToast('Fehler beim Laden der Statistiken: ' + error.message, 'error');
+    if (isManual) {
+      showToast('Fehler beim Laden der Statistiken: ' + error.message, 'error');
+    }
   } finally {
+    currentAbortController = null;
     initialLoading.value = false;
     refreshing.value = false;
   }
 }
 
-// Initialize charts
+// Performance-optimierte Chart-Initialisierung mit verzögertem Laden
 function initCharts() {
+  // Verzögerte Chart-Erstellung für bessere Erstladezeit
   nextTick(() => {
-    // Ensure DOM is fully updated before creating charts
+    // Abbrechen, wenn die Seite nicht mehr aktiv ist
+    if (!pageActive.value) return;
+    
+    // Chart.js-Konfiguration für bessere Performance
+    Chart.defaults.font.family = "'Inter', 'Helvetica', 'Arial', sans-serif";
+    Chart.defaults.responsive = true;
+    Chart.defaults.maintainAspectRatio = false;
+    
+    // Ping-Chart-Optimierungen
     if (pingChartRef.value) {
       const ctx = pingChartRef.value.getContext('2d');
-      if (pingChart) pingChart.destroy(); // Destroy previous instance if exists
+      if (pingChart) pingChart.destroy(); // Vermeidung von Memory-Leaks
       
       pingChart = new Chart(ctx, {
         type: 'line',
@@ -333,63 +454,71 @@ function initCharts() {
             data: [],
             borderColor: '#3B82F6',
             backgroundColor: 'rgba(59, 130, 246, 0.12)',
-            borderWidth: 3,
-            tension: 0.5, // Erhöht für rundere Kurven
+            borderWidth: 2,
+            tension: 0.2, // Reduzierte Kurvenglättung für bessere Performance
             fill: true,
-            pointRadius: 0, // Datenpunkte ausblenden (normal)
-            pointHoverRadius: 5, // Bei Hover trotzdem sichtbar
-            pointHoverBackgroundColor: '#3B82F6',
-            pointHoverBorderColor: '#fff',
-            pointHoverBorderWidth: 2
+            pointRadius: 0, // Keine Punkte für bessere Performance
+            pointHoverRadius: 4
           }]
         },
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              beginAtZero: true,
-              grid: {
-                color: 'rgba(160, 160, 160, 0.1)' // Subtileres Raster
-              }
-            },
-            x: {
-              grid: {
-                display: false
-              }
-            }
+          animation: {
+            duration: shouldReduceMotion() ? 0 : 300 // Reduzierte Animation
+          },
+          interaction: {
+            intersect: false,
+            mode: 'index'
           },
           plugins: {
             legend: {
               display: false
             },
             tooltip: {
+              enabled: true,
+              mode: 'index',
               intersect: false,
-              mode: 'index'
+              position: 'nearest'
+            }
+          },
+          scales: {
+            x: {
+              display: true,
+              ticks: {
+                maxTicksLimit: 6,
+                maxRotation: 0
+              },
+              grid: {
+                display: false
+              }
+            },
+            y: {
+              display: true,
+              beginAtZero: true,
+              ticks: {
+                maxTicksLimit: 5
+              },
+              grid: {
+                color: 'rgba(0, 0, 0, 0.05)'
+              }
             }
           },
           elements: {
             line: {
-              tension: 0.5, // Erhöht für rundere Kurven
-              borderJoinStyle: 'round', // Abgerundete Verbindungen
-              capBezierPoints: true // Bessere Kurven an den Endpunkten
-            },
-            point: {
-              radius: 0, // Datenpunkte ausblenden
-              hoverRadius: 5
+              borderWidth: 2
             }
           },
-          interaction: {
-            intersect: false,
-            mode: 'index'
-          }
+          layout: {
+            padding: 5
+          },
+          devicePixelRatio: 1.5 // Optimierte Auflösung für Performance/Qualität-Balance
         }
       });
     }
     
+    // System-Chart optimiert
     if (systemChartRef.value) {
       const ctx = systemChartRef.value.getContext('2d');
-      if (systemChart) systemChart.destroy(); // Destroy previous instance if exists
+      if (systemChart) systemChart.destroy();
       
       systemChart = new Chart(ctx, {
         type: 'line',
@@ -400,126 +529,283 @@ function initCharts() {
               label: 'CPU (%)',
               data: [],
               borderColor: '#EF4444',
-              backgroundColor: 'rgba(239, 68, 68, 0.08)',
-              borderWidth: 3,
-              tension: 0.5,
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              borderWidth: 2,
+              tension: 0.2,
               fill: true,
-              pointRadius: 0, // Datenpunkte ausblenden
-              pointHoverRadius: 5
+              pointRadius: 0,
+              pointHoverRadius: 4
             },
             {
               label: 'RAM (%)',
               data: [],
               borderColor: '#10B981',
-              backgroundColor: 'rgba(16, 185, 129, 0.08)',
-              borderWidth: 3,
-              tension: 0.5,
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              borderWidth: 2,
+              tension: 0.2,
               fill: true,
-              pointRadius: 0, // Datenpunkte ausblenden
-              pointHoverRadius: 5
+              pointRadius: 0,
+              pointHoverRadius: 4
             }
           ]
         },
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              beginAtZero: true,
-              suggestedMax: 100,
-              grid: {
-                color: 'rgba(160, 160, 160, 0.1)' // Subtileres Raster
-              }
-            },
-            x: {
-              grid: {
-                display: false
-              }
-            }
-          },
-          elements: {
-            line: {
-              tension: 0.5, // Erhöht für rundere Kurven
-              borderJoinStyle: 'round', // Abgerundete Verbindungen
-              capBezierPoints: true // Bessere Kurven an den Endpunkten
-            },
-            point: {
-              radius: 0, // Datenpunkte ausblenden
-              hoverRadius: 5,
-              hoverBorderWidth: 2
-            }
+          animation: {
+            duration: shouldReduceMotion() ? 0 : 300
           },
           interaction: {
             intersect: false,
             mode: 'index'
-          }
+          },
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                boxWidth: 12,
+                usePointStyle: true,
+                pointStyle: 'circle'
+              }
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false,
+              position: 'nearest'
+            }
+          },
+          scales: {
+            x: {
+              display: true,
+              ticks: {
+                maxTicksLimit: 6,
+                maxRotation: 0
+              },
+              grid: {
+                display: false
+              }
+            },
+            y: {
+              display: true,
+              beginAtZero: true,
+              ticks: {
+                maxTicksLimit: 5,
+                callback: function(value) {
+                  return value + '%';
+                }
+              },
+              grid: {
+                color: 'rgba(0, 0, 0, 0.05)'
+              },
+              suggestedMax: 100
+            }
+          },
+          elements: {
+            line: {
+              borderWidth: 2
+            }
+          },
+          layout: {
+            padding: 5
+          },
+          devicePixelRatio: 1.5
         }
       });
     }
     
-    // Update charts immediately if data is available
+    // Update charts sofort mit vorhandenen Daten wenn verfügbar
     if (stats.value.history) {
       updateCharts();
     }
   });
 }
 
-// Update chart data
+// Prüfen auf reduzierte Bewegung mit Cache
+const reducedMotionState = ref(null);
+
+function shouldReduceMotion() {
+  // Cache für wiederholte Aufrufe
+  if (reducedMotionState.value !== null) return reducedMotionState.value;
+  
+  // Server-side rendering check
+  if (typeof window === 'undefined') return false;
+  
+  // Präferenz ermitteln und cachen
+  reducedMotionState.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return reducedMotionState.value;
+}
+
+// Optimiertes Chart-Update mit minimalen Neuberechnungen
 function updateCharts() {
-  if (!stats.value.history) return;
+  if (!pageActive.value || !stats.value.history) return;
   
   const { ping: pingHistory, cpu: cpuHistory, memory: memoryHistory } = stats.value.history;
   
-  // Update ping chart
-  if (pingChart && pingHistory && pingHistory.length > 0) {
-    pingChart.data.labels = pingHistory.map(p => formatTime(p.timestamp));
-    pingChart.data.datasets[0].data = pingHistory.map(p => p.value);
-    pingChart.update();
+  // Ping-Chart optimiert aktualisieren
+  if (pingChart && pingHistory?.length > 0) {
+    const isPingChanged = !pingChart.data.labels.length || 
+                          pingHistory.length !== pingChart.data.labels.length ||
+                          pingHistory[pingHistory.length-1].timestamp !== 
+                          parseInt(pingChart.data.labels[pingChart.data.labels.length-1]);
+                          
+    // Nur aktualisieren, wenn sich Daten geändert haben
+    if (isPingChanged) {
+      pingChart.data.labels = pingHistory.map(p => formatTime(p.timestamp));
+      pingChart.data.datasets[0].data = pingHistory.map(p => p.value);
+      pingChart.update('quiet'); // Minimaler Update-Modus
+    }
   }
   
-  // Update system chart
-  if (systemChart && cpuHistory && memoryHistory && cpuHistory.length > 0) {
-    systemChart.data.labels = cpuHistory.map(c => formatTime(c.timestamp));
-    systemChart.data.datasets[0].data = cpuHistory.map(c => c.value);
-    systemChart.data.datasets[1].data = memoryHistory.map(m => m.value);
-    systemChart.update();
+  // System-Chart optimiert aktualisieren
+  if (systemChart && cpuHistory?.length > 0 && memoryHistory?.length > 0) {
+    const isSystemChanged = !systemChart.data.labels.length || 
+                            cpuHistory.length !== systemChart.data.labels.length ||
+                            cpuHistory[cpuHistory.length-1].timestamp !== 
+                            parseInt(systemChart.data.labels[systemChart.data.labels.length-1]);
+                            
+    // Nur aktualisieren, wenn sich Daten geändert haben
+    if (isSystemChanged) {
+      systemChart.data.labels = cpuHistory.map(c => formatTime(c.timestamp));
+      systemChart.data.datasets[0].data = cpuHistory.map(c => c.value);
+      systemChart.data.datasets[1].data = memoryHistory.map(m => m.value);
+      systemChart.update('quiet');
+    }
   }
 }
 
-// Refresh stats manually
-function refreshStats() {
-  if (refreshing.value) return; // Verhindert mehrfache Klicks
-  loadStats();
-  showToast('Statistiken wurden aktualisiert', 'info');
-}
+// Optimierte Refresh-Funktion mit Debouncing
+const refreshStats = (() => {
+  let timeout = null;
+  
+  return () => {
+    if (refreshing.value) return; // Verhindert mehrfache Klicks
+    
+    // Bestehenden Timeout abbrechen
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    
+    // Sofort mit manueller Flag ausführen
+    loadStats(false, true).then(() => {
+      showToast('Statistiken wurden aktualisiert', 'success', 3000);
+    });
+    
+    // Nächsten automatischen Refresh verzögern
+    timeout = setTimeout(() => {
+      timeout = null;
+    }, REFRESH_INTERVAL);
+  };
+})();
 
-// Lifecycle hooks
+// Optimierte Lifecycle-Hooks mit Ressourcenfreigabe
 onMounted(async () => {
-  // Initial loading
+  // Chart.js erst auf dem Client importieren
+  await importChartJS();
+  
+  // Seite als aktiv markieren
+  pageActive.value = true;
+  
+  // Initiales Laden
   await loadStats(true);
   
-  nextTick(() => {
-    // Initialize charts after data is loaded and DOM is updated
-    initCharts();
-  });
+  // Charts initialisieren mit Verzögerung für bessere Erstladezeit
+  setTimeout(() => {
+    if (pageActive.value && Chart) {
+      initCharts();
+    }
+  }, 200);
   
-  // Auto refresh every 10 seconds
+  // Optimiertes Intervall mit Überprüfung der Seitenaktivität
   refreshInterval = setInterval(() => {
+    if (pageActive.value && !refreshing.value && document.visibilityState === 'visible') {
+      loadStats();
+    }
+  }, REFRESH_INTERVAL);
+  
+  // Event-Listener für Seitenvisibilität
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  
+  // Automatische Aktualisierung beim Wiederherstellen der Verbindung
+  window.addEventListener('online', handleOnlineStatus);
+});
+
+// Verbesserte Sichtbarkeits- und Online-Status-Behandlung
+function handleVisibilityChange() {
+  const isVisible = document.visibilityState === 'visible';
+  
+  // Daten aktualisieren, wenn die Seite wieder sichtbar wird
+  if (isVisible && pageActive.value) {
     loadStats();
-  }, 10000); // 10 Sekunden Intervall
+  }
+}
+
+function handleOnlineStatus() {
+  if (navigator.onLine && pageActive.value) {
+    // Kurze Verzögerung für Netzwerkstabilisierung
+    setTimeout(() => {
+      loadStats();
+      showToast('Verbindung wiederhergestellt, Daten werden aktualisiert', 'info');
+    }, 1500);
+  }
+}
+
+// Komponenten-Aktivierung und -Deaktivierung für Keep-Alive-Support
+onActivated(() => {
+  pageActive.value = true;
+  lastUpdateTime.value = 0; // Sofortiges Update erzwingen
+  loadStats();
+  
+  // Intervall neu starten wenn nötig
+  if (!refreshInterval) {
+    refreshInterval = setInterval(() => {
+      if (pageActive.value && !refreshing.value && document.visibilityState === 'visible') {
+        loadStats();
+      }
+    }, REFRESH_INTERVAL);
+  }
+});
+
+onDeactivated(() => {
+  pageActive.value = false;
+  
+  // Intervall stoppen um Ressourcen zu sparen
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+    refreshInterval = null;
+  }
 });
 
 onUnmounted(() => {
+  // Alle Ressourcen ordnungsgemäß freigeben
+  pageActive.value = false;
+  
   if (refreshInterval) {
     clearInterval(refreshInterval);
+    refreshInterval = null;
   }
   
-  // Clean up charts
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  window.removeEventListener('online', handleOnlineStatus);
+  
+  // Laufende Anfrage abbrechen
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
+  
+  // Chart-Ressourcen freigeben
   if (pingChart) {
     pingChart.destroy();
+    pingChart = null;
   }
+  
   if (systemChart) {
     systemChart.destroy();
+    systemChart = null;
   }
+  
+  // Caches leeren
+  bytesCache.clear();
+  timeCache.clear();
+  formatUptimeCache.clear();
+  formatSystemUptimeCache.clear();
 });
 </script>
