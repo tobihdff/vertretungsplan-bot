@@ -2,9 +2,17 @@ const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const { NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, DEBUG, cache } = require('../config');
 const { getTargetDate, formatDate, parseGermanDate, formatReadableDate } = require('../utils/dateUtils');
 const { hasDataChanged, findChanges } = require('../utils/dataUtils');
-const { fetchData } = require('../services/apiService');
+const ApiService = require('../services/apiService');
 const { createPlanImage } = require('../services/imageService');
 const { sendTempPingNotification } = require('../tasks/updateTask');
+
+// ApiService-Instanz erstellen, aber nur wenn die Umgebungsvariablen gesetzt sind
+let apiService;
+try {
+    apiService = new ApiService();
+} catch (error) {
+    console.warn('ApiService konnte nicht initialisiert werden:', error.message);
+}
 
 /**
  * Prüft, ob ein Benutzer autorisiert ist, Tests auszuführen
@@ -19,11 +27,15 @@ function isAuthorized(userId, authorizedUsers) {
  */
 async function testPlanGeneration(interaction) {
     try {
+        if (!apiService) {
+            throw new Error('ApiService ist nicht initialisiert');
+        }
+
         await interaction.deferReply();
         
         const targetDate = getTargetDate();
         const dateParam = formatDate(targetDate);
-        const data = await fetchData(dateParam);
+        const data = await apiService.fetchData(dateParam);
         
         // Teste die Generierung des Bildes
         const imageBuffer = await createPlanImage(data, targetDate);
@@ -44,6 +56,10 @@ async function testPlanGeneration(interaction) {
  */
 async function testUpdateDetection(interaction, date) {
     try {
+        if (!apiService) {
+            throw new Error('ApiService ist nicht initialisiert');
+        }
+
         await interaction.deferReply();
         
         // Datum verwenden oder aktuelles Zieldatum berechnen
@@ -51,7 +67,7 @@ async function testUpdateDetection(interaction, date) {
         const dateParam = formatDate(targetDate);
         
         // Lade aktuelle Daten
-        const currentData = await fetchData(dateParam);
+        const currentData = await apiService.fetchData(dateParam);
         
         // Erstelle eine modifizierte Kopie der Daten
         const modifiedData = JSON.parse(JSON.stringify(currentData));
@@ -148,7 +164,7 @@ async function testNotification(interaction, client) {
         const targetDateStr = formatReadableDate(targetDate);
         
         // Aktuelle Daten abrufen
-        const currentData = await fetchData(dateParam);
+        const currentData = await apiService.fetchData(dateParam);
         
         if (!currentData || currentData.length === 0) {
             return await interaction.editReply('❌ **Test fehlgeschlagen**\nKeine Daten verfügbar für das Testdatum!');

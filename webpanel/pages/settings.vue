@@ -126,10 +126,19 @@ const loadSettings = async () => {
     const response = await fetch('/api/bot/settings');
     const data = await response.json();
     if (data.success) {
-      settings.value = { ...data.settings };
-      originalSettings.value = { ...data.settings };
-      settings.value.apiPing = data.settings.apiPing || null; // Add apiPing
-      settings.value.discordPing = data.settings.discordPing || null; // Add discordPing
+      // Map Appwrite settings to the UI format
+      settings.value = {
+        planChannelId: data.settings.PLAN_CHANNEL_ID || '',
+        notificationChannelId: data.settings.NOTIFICATION_CHANNEL_ID || '',
+        updateRoleId: data.settings.UPDATE_ROLE_ID || '',
+        authorizedUsers: data.settings.AUTHORIZED_USERS || '',
+        updateInterval: parseInt(data.settings.UPDATE_INTERVAL_MINUTES || '20'),
+        checkInterval: parseInt(data.settings.CHECK_INTERVAL_MINUTES || '20'),
+        apiUrl: data.settings.API_URL || '',
+        apiKey: data.settings.API_KEY || '',
+        debugMode: data.settings.DEBUG_MODE === 'true'
+      };
+      originalSettings.value = { ...settings.value };
     } else {
       showToast('Fehler beim Laden der Einstellungen: ' + data.error, 'error');
     }
@@ -142,10 +151,23 @@ const loadSettings = async () => {
 // Einstellungen speichern
 const saveSettings = async () => {
   try {
+    // Map UI format back to Appwrite format
+    const appwriteSettings = {
+      PLAN_CHANNEL_ID: settings.value.planChannelId,
+      NOTIFICATION_CHANNEL_ID: settings.value.notificationChannelId,
+      UPDATE_ROLE_ID: settings.value.updateRoleId,
+      AUTHORIZED_USERS: settings.value.authorizedUsers,
+      UPDATE_INTERVAL_MINUTES: settings.value.updateInterval.toString(),
+      CHECK_INTERVAL_MINUTES: settings.value.checkInterval.toString(),
+      API_URL: settings.value.apiUrl,
+      API_KEY: settings.value.apiKey,
+      DEBUG_MODE: settings.value.debugMode.toString()
+    };
+
     const response = await fetch('/api/bot/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(settings.value)
+      body: JSON.stringify(appwriteSettings)
     });
     const data = await response.json();
     if (data.success) {

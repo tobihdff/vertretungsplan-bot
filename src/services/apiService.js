@@ -1,4 +1,4 @@
-const { BASE_URL, API_KEY, cache } = require('../config');
+const { API_KEY, cache } = require('../config');
 const { debugLog } = require('../utils/debugUtils');
 
 /**
@@ -12,6 +12,12 @@ class ApiService {
     this.timeout = 8000; // 8 Sekunden Timeout für API-Anfragen
     this.pendingRequests = new Map(); // Verhindert doppelte Anfragen für den gleichen Endpunkt
     this.lastSuccessfulRequest = 0;
+    
+    if (!process.env.API_URL) {
+      throw new Error('API_URL ist nicht in den Umgebungsvariablen definiert');
+    }
+    
+    debugLog(`ApiService initialisiert mit URL: ${process.env.API_URL}`);
     
     // Regelmäßige Cache-Bereinigung
     setInterval(() => this.cleanupCache(), 30 * 60 * 1000); // Alle 30 Minuten
@@ -138,7 +144,8 @@ class ApiService {
       
       try {
         debugLog(`API-Anfrage: Hole Daten für Datum ${dateParam}`);
-        const apiUrl = `${BASE_URL}?date=${dateParam}`;
+        const apiUrl = `${process.env.API_URL}?date=${dateParam}`;
+        debugLog(`Verwende API-URL: ${apiUrl}`);
         
         const controller = new AbortController();
         const { signal } = controller;
@@ -235,7 +242,7 @@ class ApiService {
       setTimeout(() => controller.abort(), 3000);
       
       // Einfache Ping-Anfrage ohne große Datenmengen
-      const response = await fetch(`${BASE_URL}?check=1`, {
+      const response = await fetch(`${process.env.API_URL}?check=1`, {
         headers: {
           "appwrite-admin": API_KEY,
           "Cache-Control": "no-cache",
@@ -277,13 +284,5 @@ class ApiService {
   }
 }
 
-// Singleton-Instanz erstellen
-const apiService = new ApiService();
-
-module.exports = {
-  fetchData: (dateParam) => apiService.fetchData(dateParam),
-  checkApiAvailability: () => apiService.checkApiAvailability(),
-  // Neue Hilfsfunktionen hinzufügen
-  getCachedData: (dateParam) => apiService.getCachedData(dateParam),
-  clearCache: () => apiService.requestCache.clear()
-};
+// Statt einer Singleton-Instanz exportieren wir die Klasse
+module.exports = ApiService;

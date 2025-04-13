@@ -7,9 +7,10 @@ const cors = require('cors');
 const fs = require('fs-extra');
 const path = require('path');
 const { cache, DEBUG } = require('../config');
-const { debugLog, setLogLevel, getLogLevel, isDebugMode } = require('../utils/debugUtils');
+const { debugLog, setLogLevel, getLogLevel, isDebugMode, errorLog } = require('../utils/debugUtils');
 const { updatePlan, checkPlanChanges, cleanupOldMessages } = require('../tasks/updateTask');
 const { setInitialBotStatus, enableMaintenanceMode, disableMaintenanceMode, isMaintenanceModeActive } = require('../utils/statusUtils');
+const ApiService = require('./apiService');
 
 // Datei-Pfade
 const logDirectory = path.join(process.cwd(), 'logs');
@@ -25,6 +26,11 @@ class ApiWebService {
         this.client = client;
         this.config = config;
         this.port = process.env.WEB_API_PORT || 3001;
+        this.server = null;
+        this.appwriteService = null;
+        
+        // ApiService erst hier initialisieren, wenn die Umgebungsvariablen gesetzt sind
+        this.apiService = new ApiService();
         
         // Middleware für CORS und JSON-Verarbeitung
         this.app.use(cors());
@@ -50,6 +56,10 @@ class ApiWebService {
         }
     }
     
+    setAppwriteService(service) {
+        this.appwriteService = service;
+    }
+    
     // Startet den API-Server
     start() {
         this.server = this.app.listen(this.port, () => {
@@ -64,8 +74,9 @@ class ApiWebService {
     // Stoppt den API-Server
     stop() {
         if (this.server) {
-            this.server.close();
-            debugLog('API-Server wurde gestoppt');
+            this.server.close(() => {
+                debugLog('API-Server wurde gestoppt');
+            });
         }
     }
     
@@ -117,7 +128,11 @@ class ApiWebService {
         // GET /api/bot/settings - Bot-Einstellungen abrufen
         this.app.get('/api/bot/settings', async (req, res) => {
             try {
-                const settings = await this.readSettings();
+                if (!this.appwriteService) {
+                    throw new Error('Appwrite Service nicht initialisiert');
+                }
+                const settings = await this.appwriteService.getAllSettings();
+                debugLog('Einstellungen aus Appwrite geladen:', Object.keys(settings).join(', '));
                 res.json({ success: true, settings });
             } catch (error) {
                 debugLog(`Fehler beim Lesen der Einstellungen: ${error.message}`);
@@ -128,17 +143,37 @@ class ApiWebService {
         // POST /api/bot/settings - Bot-Einstellungen speichern
         this.app.post('/api/bot/settings', async (req, res) => {
             try {
-                const success = await this.writeSettings(req.body);
-                
-                if (success) {
-                    this.addActivity('settings', 'Einstellungen wurden aktualisiert');
-                    res.json({ success: true });
-                } else {
-                    res.json({ success: false, error: 'Einstellungen konnten nicht gespeichert werden' });
+                if (!this.appwriteService) {
+                    throw new Error('AppwriteService ist nicht initialisiert');
                 }
+
+                const settings = req.body;
+                const appwriteSettings = {};
+
+                // Konvertiere die Einstellungen in das Appwrite-Format
+                for (const [key, value] of Object.entries(settings)) {
+                    if (!key.startsWith('APPWRITE_')) {
+                        appwriteSettings[key] = value.toString();
+                    }
+                }
+
+                // Speichere jede Einstellung einzeln
+                for (const [key, value] of Object.entries(appwriteSettings)) {
+                    debugLog(`Speichere Einstellung ${key}...`);
+                    await this.appwriteService.setSetting(key, value);
+                }
+
+                // Lade die Einstellungen neu
+                const reloadSuccess = await this.appwriteService.reloadSettings();
+                if (!reloadSuccess) {
+                    throw new Error('Fehler beim Neuladen der Einstellungen');
+                }
+
+                this.addActivity('settings', 'Einstellungen wurden aktualisiert und neu geladen');
+                res.json({ success: true, message: 'Einstellungen wurden gespeichert und aktiviert' });
             } catch (error) {
-                debugLog(`Fehler beim Speichern der Einstellungen: ${error.message}`);
-                res.json({ success: false, error: error.message || 'Einstellungen konnten nicht gespeichert werden' });
+                errorLog(`Fehler beim Speichern der Einstellungen: ${error.message}`);
+                res.status(500).json({ success: false, error: error.message });
             }
         });
         
@@ -209,6 +244,56 @@ class ApiWebService {
         
         // Weitere API-Endpunkte
         this.setupAdditionalRoutes();
+
+        // Einstellungen abrufen
+        this.app.get('/api/settings', async (req, res) => {
+            try {
+                const settings = await this.appwriteService.getAllSettings();
+                res.json(settings);
+            } catch (error) {
+                errorLog(`Fehler beim Abrufen der Einstellungen: ${error.message}`);
+                res.status(500).json({ error: 'Interner Server-Fehler' });
+            }
+        });
+
+        // Einstellung aktualisieren
+        this.app.post('/api/settings/:key', async (req, res) => {
+            try {
+                const { key } = req.params;
+                const { value } = req.body;
+
+                if (!key || value === undefined) {
+                    return res.status(400).json({ error: 'Key und Value sind erforderlich' });
+                }
+
+                const success = await this.appwriteService.setSetting(key, value);
+                if (success) {
+                    res.json({ message: 'Einstellung erfolgreich aktualisiert' });
+                } else {
+                    res.status(500).json({ error: 'Fehler beim Speichern der Einstellung' });
+                }
+            } catch (error) {
+                errorLog(`Fehler beim Aktualisieren der Einstellung: ${error.message}`);
+                res.status(500).json({ error: 'Interner Server-Fehler' });
+            }
+        });
+
+        // Einstellung abrufen
+        this.app.get('/api/settings/:key', async (req, res) => {
+            try {
+                const { key } = req.params;
+                const value = await this.appwriteService.getSetting(key);
+                
+                if (value === null) {
+                    res.status(404).json({ error: 'Einstellung nicht gefunden' });
+                } else {
+                    res.json({ key, value });
+                }
+            } catch (error) {
+                errorLog(`Fehler beim Abrufen der Einstellung: ${error.message}`);
+                res.status(500).json({ error: 'Interner Server-Fehler' });
+            }
+        });
     }
     
     // Zusätzliche API-Routen

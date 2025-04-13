@@ -2,7 +2,7 @@ const { AttachmentBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Button
 const { PLAN_CHANNEL_ID, NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEBUG, BASE_URL, GENERAL_CHANGE_THRESHOLD } = require('../config');
 const { getTargetDate, formatDate, formatReadableDate } = require('../utils/dateUtils');
 const { hasDataChanged, findChanges, getCompactDiff } = require('../utils/dataUtils');
-const { fetchData, getCachedData } = require('../services/apiService');
+const ApiService = require('../services/apiService');
 const { createPlanImage } = require('../services/imageService');
 const { isMaintenanceModeActive } = require('../utils/statusUtils');
 const { debugLog } = require('../utils/debugUtils');
@@ -31,6 +31,15 @@ class VertretungsplanManager {
       averageUpdateDuration: 0,
       updates: 0
     };
+
+    // ApiService initialisieren
+    try {
+      this.apiService = new ApiService();
+      debugLog('ApiService erfolgreich initialisiert in VertretungsplanManager');
+    } catch (error) {
+      console.error('Fehler bei der Initialisierung des ApiService:', error.message);
+      debugLog(`Fehler bei der Initialisierung des ApiService: ${error.message}`);
+    }
   }
 
   /**
@@ -94,8 +103,12 @@ class VertretungsplanManager {
    * @returns {Array|null} - Die abgerufenen Daten oder null bei Fehler
    */
   async fetchDataWithRetry(dateParam) {
-    // Prüfe zuerst den Cache (neue Implementierung)
-    const cachedData = getCachedData(dateParam);
+    if (!this.apiService) {
+      throw new Error('ApiService ist nicht initialisiert');
+    }
+
+    // Prüfe zuerst den Cache
+    const cachedData = this.apiService.getCachedData(dateParam);
     if (cachedData) {
       debugLog(`Verwende Cache-Daten für ${dateParam}`);
       return cachedData;
@@ -107,7 +120,7 @@ class VertretungsplanManager {
     while (retryCount <= this.maxRetries) {
       try {
         const startTime = performance.now();
-        data = await fetchData(dateParam);
+        data = await this.apiService.fetchData(dateParam);
         const endTime = performance.now();
         
         if (DEBUG) {
