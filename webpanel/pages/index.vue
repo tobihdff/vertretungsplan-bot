@@ -423,6 +423,10 @@ onUnmounted(() => {
     clearInterval(refreshInterval.value);
   }
 });
+
+definePageMeta({
+  middleware: ['auth']
+})
 </script>
 
 <style scoped>

@@ -8,6 +8,7 @@ export default defineNuxtConfig({
     '@nuxt/eslint',
     '@nuxtjs/tailwindcss',
     '@nuxt/image', // Für optimierte Bildverarbeitung
+    '@pinia/nuxt', // State management
   ],
   
   // App head metadata
@@ -25,10 +26,7 @@ export default defineNuxtConfig({
     compressPublicAssets: true, // Aktiviert Gzip-Kompression für öffentliche Assets
     routeRules: {
       '/api/bot/**': {
-        proxy: 'http://localhost:3001/api/bot/**',
-        cache: {
-          maxAge: 10, // 10 Sekunden Cache für API-Antworten
-        }
+        proxy: process.env.BOT_API_URL || 'http://localhost:3001'
       },
       '/_nuxt/**': {
         headers: {
@@ -82,7 +80,7 @@ export default defineNuxtConfig({
   
   // Optimierungen für die Build-Phase
   build: {
-    transpile: [],
+    transpile: ['@heroicons/vue'],  // Heroicons transpilieren
     analyze: process.env.ANALYZE === 'true', // Bundle-Analyse bei Bedarf aktivieren
   },
   
@@ -98,5 +96,14 @@ export default defineNuxtConfig({
       'postcss-import': {},
       'tailwindcss/nesting': {},
     },
+  },
+
+  runtimeConfig: {
+    appwriteApiKey: process.env.APPWRITE_API_KEY, // Private by default
+    public: {
+      appwriteEndpoint: process.env.APPWRITE_ENDPOINT,
+      appwriteProjectId: process.env.APPWRITE_PROJECT_ID,
+      botApiUrl: process.env.BOT_API_URL || 'http://localhost:3001'
+    }
   },
 })

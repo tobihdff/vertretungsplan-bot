@@ -174,18 +174,20 @@
     </div>
 
     <!-- Main Content -->
-    <div class="flex flex-col md:flex-row">
-      <!-- Main Content mit korrektem Abstand -->
+    <div class="min-h-screen">
+      <!-- Main Content mit symmetrischen Abständen -->
       <main 
-        class="flex-1 p-4 md:p-6 transition-all duration-300 pt-[76px] md:pt-6" 
+        class="transition-all duration-300 pt-[76px] md:pt-6" 
         :class="{
-          'md:ml-64': !isCollapsed,
-          'md:ml-16': isCollapsed, 
-          'ml-0': true,
+          'md:pl-[272px] md:pr-6': !isCollapsed, // 256px (sidebar) + 16px (padding links) + 24px (padding rechts)
+          'md:pl-[80px] md:pr-6': isCollapsed,    // 64px (sidebar) + 16px (padding links) + 24px (padding rechts)
+          'px-6': true, // Einheitlicher Abstand auf mobilen Geräten
           'text-gray-900 dark:text-gray-100': true
         }"
       >
-        <NuxtPage />
+        <NuxtLayout>
+          <NuxtPage />
+        </NuxtLayout>
       </main>
     </div>
     
@@ -198,6 +200,11 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useDarkMode } from './composables/useDarkMode';
 import useToast from './composables/useToast';
+
+// Füge am Anfang des <script setup> Bereichs hinzu:
+definePageMeta({
+  middleware: ['auth']
+})
 
 // Darkmode Composable importieren
 const { isDarkMode, toggleDarkMode, init } = useDarkMode();
@@ -287,7 +294,7 @@ body {
 }
 
 .sidebar-transition {
-  transition: width 0.3s ease, transform 0.3s ease;
+  transition: all 0.3s ease-in-out;
 }
 
 .sidebar-transition span {
@@ -307,7 +314,7 @@ main {
 
 /* Ripple-Effekt für den Status-Indikator */
 .ripple-effect {
-  animation: ripple 2s infinite;
+  animation: ripple 1.5s linear infinite;
 }
 
 @keyframes ripple {
@@ -316,18 +323,18 @@ main {
     opacity: 1;
   }
   100% {
-    transform: scale(2.25);
+    transform: scale(2);
     opacity: 0;
   }
 }
 
 /* Unterschiedliche Farben für grün und rot */
 .ripple-green {
-  background-color: #10b981; /* green-500 */
+  border: 2px solid rgba(34, 197, 94, 0.5);
 }
 
 .ripple-red {
-  background-color: #ef4444; /* red-500 */
+  border: 2px solid rgba(239, 68, 68, 0.5);
 }
 
 /* Mobile menu transition */
@@ -356,23 +363,27 @@ main {
 }
 
 .menu-icon {
-  position: relative;
   width: 24px;
   height: 18px;
-  transition: transform 0.3s ease;
+  position: relative;
+  cursor: pointer;
 }
 
 .menu-icon span {
+  display: block;
   position: absolute;
-  width: 100%;
   height: 2px;
-  background-color: white;
+  width: 100%;
+  background: white;
   border-radius: 2px;
-  transition: all 0.3s ease;
+  opacity: 1;
+  left: 0;
+  transform: rotate(0deg);
+  transition: .25s ease-in-out;
 }
 
 .menu-icon span:nth-child(1) {
-  top: 0;
+  top: 0px;
 }
 
 .menu-icon span:nth-child(2) {
@@ -383,20 +394,19 @@ main {
   top: 16px;
 }
 
-/* X-Animation */
 .menu-icon.open span:nth-child(1) {
-  transform: rotate(45deg);
   top: 8px;
+  transform: rotate(135deg);
 }
 
 .menu-icon.open span:nth-child(2) {
   opacity: 0;
-  transform: translateX(-20px);
+  left: -60px;
 }
 
 .menu-icon.open span:nth-child(3) {
-  transform: rotate(-45deg);
   top: 8px;
+  transform: rotate(-135deg);
 }
 
 /* Dropdown-Animation */

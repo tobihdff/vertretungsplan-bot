@@ -11,6 +11,7 @@ const { debugLog, setLogLevel, getLogLevel, isDebugMode, errorLog } = require('.
 const { updatePlan, checkPlanChanges, cleanupOldMessages } = require('../tasks/updateTask');
 const { setInitialBotStatus, enableMaintenanceMode, disableMaintenanceMode, isMaintenanceModeActive } = require('../utils/statusUtils');
 const ApiService = require('./apiService');
+const AuthService = require('./authService');
 
 // Datei-Pfade
 const logDirectory = path.join(process.cwd(), 'logs');
@@ -31,10 +32,135 @@ class ApiWebService {
         
         // ApiService erst hier initialisieren, wenn die Umgebungsvariablen gesetzt sind
         this.apiService = new ApiService();
+        this.authService = new AuthService();
         
         // Middleware für CORS und JSON-Verarbeitung
-        this.app.use(cors());
+        this.app.use(cors({
+            origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+            credentials: true,
+            methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+            allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+        }));
         this.app.use(express.json());
+        
+        // Authentication middleware
+        this.app.use(async (req, res, next) => {
+            console.log('\n=== API Authentication Middleware Start ===');
+            console.log(`Request: ${req.method} ${req.url}`);
+            console.log('Headers:', JSON.stringify(req.headers, null, 2));
+
+            // Skip authentication for login route and OPTIONS requests
+            if (req.url === '/login' || req.method === 'OPTIONS') {
+                console.log('Skipping auth for:', req.url);
+                console.log('=== API Authentication Middleware End ===\n');
+                return next();
+            }
+
+            try {
+                // Extract authentication tokens
+                const authHeader = req.headers.authorization;
+                const sessionId = req.headers['x-session-id'];
+                let token = null;
+                let authType = null;
+
+                console.log('Auth sources:');
+                console.log('- Authorization:', authHeader ? `${authHeader.substring(0, 20)}...` : 'none');
+                console.log('- Session ID:', sessionId ? `${sessionId.substring(0, 10)}...` : 'none');
+
+                // First try Bearer token
+                if (authHeader && authHeader.startsWith('Bearer ')) {
+                    token = authHeader.substring(7);
+                    authType = 'jwt';
+                    console.log('Using Bearer token for authentication');
+                }
+                // Then try session ID
+                else if (sessionId) {
+                    token = sessionId;
+                    authType = 'session';
+                    console.log('Using session ID for authentication');
+                }
+
+                if (!token) {
+                    console.log('No authentication credentials found');
+                    throw new Error('No authentication credentials provided');
+                }
+
+                console.log(`Attempting to verify ${authType} token...`);
+                const session = await this.authService.verifySession(token, authType);
+                
+                if (!session) {
+                    console.log('Session verification failed');
+                    throw new Error('Invalid authentication credentials');
+                }
+
+                console.log('Authentication successful');
+                console.log('Session details:', {
+                    id: session.$id,
+                    userId: session.userId,
+                    type: authType
+                });
+
+                // Attach session and auth type to request
+                req.session = session;
+                req.authType = authType;
+                next();
+            } catch (error) {
+                console.error('Authentication failed:', {
+                    message: error.message,
+                    stack: error.stack
+                });
+                
+                res.status(401).json({
+                    error: 'Authentication failed',
+                    message: error.message
+                });
+            } finally {
+                console.log('=== API Authentication Middleware End ===\n');
+            }
+        });
+
+        // Auth Routes
+        this.app.post('/api/auth/login', async (req, res) => {
+            const { email, password } = req.body;
+            
+            if (!email || !password) {
+                return res.status(400).json({ error: 'E-Mail und Passwort erforderlich' });
+            }
+            
+            try {
+                const session = await this.authService.login(email, password);
+                res.json({
+                    sessionId: session.$id,
+                    userId: session.userId
+                });
+            } catch (error) {
+                errorLog(`Login Fehler: ${error.message}`);
+                res.status(401).json({ error: 'Login fehlgeschlagen' });
+            }
+        });
+
+        this.app.post('/api/auth/logout', async (req, res) => {
+            try {
+                await this.authService.logout(req.session.$id);
+                res.json({ success: true });
+            } catch (error) {
+                errorLog(`Logout Fehler: ${error.message}`);
+                res.status(500).json({ error: 'Logout fehlgeschlagen' });
+            }
+        });
+
+        this.app.get('/api/auth/user', async (req, res) => {
+            try {
+                const user = await this.authService.getCurrentUser();
+                if (!user) {
+                    return res.status(401).json({ error: 'Kein Benutzer gefunden' });
+                }
+                res.json(user);
+            } catch (error) {
+                errorLog(`Benutzerabruf Fehler: ${error.message}`);
+                res.status(500).json({ error: 'Benutzerabruf fehlgeschlagen' });
+            }
+        });
         
         // API-Router einrichten
         this.setupRoutes();

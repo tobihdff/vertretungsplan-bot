@@ -8,7 +8,9 @@ import { promisify } from 'node:util';
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import http from 'node:http';
-import { getQuery, readBody } from 'h3';
+import { getQuery, readBody, createError } from 'h3';
+import type { H3Event } from 'h3';
+import { Client, Account } from 'appwrite';
 
 // Helper für asynchrones Lesen/Schreiben von Dateien
 const readFile = promisify(fs.readFile);
@@ -163,27 +165,45 @@ const writeSettings = async (settings: BotSettings): Promise<boolean> => {
 };
 
 interface ApiResponse {
+  success: boolean;
+  error?: string;
   [key: string]: unknown;
 }
 
 // Führt API-Anfrage an den Bot durch
-const callBotAPI = async (endpoint: string, method = 'GET', body?: Record<string, unknown>): Promise<ApiResponse> => {
+const callBotAPI = async (endpoint: string, method = 'GET', body?: Record<string, unknown>, token?: string): Promise<ApiResponse> => {
   // Verwende die Port-Nummer aus der Umgebungsvariable oder den Standard-Port 3001
   const apiPort = process.env.WEB_API_PORT || 3001;
   const apiUrl = `http://localhost:${apiPort}${endpoint}`;
   
-  console.log(`Calling Bot API: ${method} ${apiUrl}`);
+  console.log('\n=== Bot API Call Start ===');
+  console.log('URL:', apiUrl);
+  console.log('Method:', method);
+  console.log('Body:', body);
+  console.log('Token Preview:', token ? `${token.substring(0, 10)}...` : 'none');
   
   return new Promise((resolve, reject) => {
     const options = {
       method,
       headers: {
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      } as Record<string, string>
     };
 
+    // Forward the user's token if provided
+    if (token) {
+      options.headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    console.log('Request Headers:', options.headers);
+
     const req = http.request(apiUrl, options, (res) => {
+      console.log('Response Status:', res.statusCode);
+      console.log('Response Headers:', res.headers);
+      
       if (res.statusCode !== 200) {
+        console.error('Non-200 status code received');
         return reject(new Error(`Status Code: ${res.statusCode}`));
       }
       
@@ -194,21 +214,27 @@ const callBotAPI = async (endpoint: string, method = 'GET', body?: Record<string
       
       res.on('end', () => {
         try {
+          console.log('Raw Response Data:', data);
           const parsedData = JSON.parse(data);
+          console.log('Parsed Response Data:', parsedData);
+          console.log('=== Bot API Call End ===\n');
           resolve(parsedData);
-        } catch (err) {
-          reject(new Error(`Invalid JSON response: ${err.message}`));
+        } catch (error) {
+          console.error('Error parsing response:', error);
+          reject(new Error('Invalid JSON response'));
         }
       });
     });
     
     req.on('error', (error) => {
-      console.error(`API call error: ${error.message}`);
+      console.error('Request error:', error);
       reject(error);
     });
     
     if (body) {
-      req.write(JSON.stringify(body));
+      const bodyStr = JSON.stringify(body);
+      console.log('Sending request body:', bodyStr);
+      req.write(bodyStr);
     }
     
     req.end();
@@ -400,432 +426,101 @@ const checkBotStatus = async (): Promise<BotStatus> => {
   }
 };
 
-// Endpunkt: Bot-Status abrufen
-export default defineEventHandler(async (event) => {
-  const method = event.method;
-  const path = event.path;
+// Authentifizierung prüfen
+const verifyAuth = async (event: H3Event) => {
+  console.log('\n=== Auth Verification Start ===');
+  const headers = event.headers;
+  console.log('Request Headers:', Object.fromEntries(headers.entries()));
   
-  // GET /api/bot/status - Bot-Status abrufen
-  if (method === 'GET' && path === '/api/bot/status') {
-    try {
-      // Tatsächlichen Bot-Status prüfen
-      const botStatus = await checkBotStatus();
-      
-      return {
-        success: true,
-        ...botStatus
-      };
-    } catch {
-      return {
-        success: true,
-        active: false,
-        maintenanceMode: false,
-        lastUpdate: 'Unbekannt',
-        recentActivities: [
-          { type: 'error', message: 'Fehler beim Abrufen des Bot-Status', timestamp: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }
-        ]
-      };
-    }
-  }
-  
-  // GET /api/bot/settings - Bot-Einstellungen abrufen
-  if (method === 'GET' && path === '/api/bot/settings') {
-    try {
-      const settings = await readSettings();
-      return { success: true, settings };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Einstellungen konnten nicht geladen werden';
-      return { success: false, error: errorMessage };
-    }
-  }
-  
-  // POST /api/bot/settings - Bot-Einstellungen speichern
-  if (method === 'POST' && path === '/api/bot/settings') {
-    try {
-      const body = await readBody(event) as BotSettings;
-      const success = await writeSettings(body);
-      
-      if (success) {
-        return { success: true };
-      } else {
-        return { success: false, error: 'Einstellungen konnten nicht gespeichert werden' };
-      }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Einstellungen konnten nicht gespeichert werden';
-      return { success: false, error: errorMessage };
-    }
-  }
-  
-  // POST /api/bot/restart - Bot neustarten
-  if (method === 'POST' && path === '/api/bot/restart') {
-    try {
-      // Bot stoppen und neu starten
-      await stopBot();
-      setTimeout(async () => {
-        await startBot();
-      }, 1000);
-      
-      return { success: true };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Bot konnte nicht neu gestartet werden';
-      return { success: false, error: errorMessage };
-    }
-  }
-  
-  // POST /api/bot/maintenance - Wartungsmodus umschalten
-  if (method === 'POST' && path === '/api/bot/maintenance') {
-    try {
-      const body = await readBody(event) as { enable: boolean };
-      const { enable } = body;
-      
-      // Versuchen, den Wartungsmodus über die Bot-API umzuschalten
-      const botStatus = await checkBotStatus();
-      if (!botStatus.active) {
-        return { success: false, error: 'Bot ist nicht erreichbar' };
-      }
-      
-      // API-Endpunkt für Wartungsmodus aufrufen
-      const endpoint = enable ? '/api/bot/maintenance/enable' : '/api/bot/maintenance/disable';
-      await callBotAPI(endpoint, 'POST');
-      
-      return { success: true };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Wartungsmodus konnte nicht umgeschaltet werden';
-      return { success: false, error: errorMessage };
-    }
-  }
-  
-  // POST /api/bot/force-update - Update erzwingen
-  if (method === 'POST' && path === '/api/bot/force-update') {
-    try {
-      // Prüfen, ob der Bot läuft
-      const botStatus = await checkBotStatus();
-      if (!botStatus.active) {
-        return { success: false, error: 'Bot ist nicht erreichbar' };
-      }
-      
-      // API-Endpunkt für Force-Update aufrufen
-      await callBotAPI('/api/bot/update/force', 'POST');
-      
-      return { success: true };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Update konnte nicht erzwungen werden';
-      return { success: false, error: errorMessage };
-    }
-  }
-  
-  // POST /api/bot/test-notification - Benachrichtigung testen
-  if (method === 'POST' && path === '/api/bot/test-notification') {
-    try {
-      // Prüfen, ob der Bot läuft
-      const botStatus = await checkBotStatus();
-      if (!botStatus.active) {
-        return { success: false, error: 'Bot ist nicht erreichbar' };
-      }
-      
-      // API-Endpunkt für Test-Benachrichtigung aufrufen
-      await callBotAPI('/api/bot/test/notification', 'POST');
-      
-      return { success: true };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Benachrichtigung konnte nicht getestet werden';
-      return { success: false, error: errorMessage };
-    }
-  }
-  
-  // POST /api/bot/test-plan - Plan-Generierung testen
-  if (method === 'POST' && path === '/api/bot/test-plan') {
-    try {
-      // Prüfen, ob der Bot läuft
-      const botStatus = await checkBotStatus();
-      if (!botStatus.active) {
-        return { success: false, error: 'Bot ist nicht erreichbar' };
-      }
-      
-      // API-Endpunkt für Test-Plan-Generierung aufrufen
-      await callBotAPI('/api/bot/test/plan', 'POST');
-      
-      return { success: true };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Plan-Generierung konnte nicht getestet werden';
-      return { success: false, error: errorMessage };
-    }
-  }
-  
-  // POST /api/bot/test-update - Änderungserkennung testen
-  if (method === 'POST' && path === '/api/bot/test-update') {
-    try {
-      // Prüfen, ob der Bot läuft
-      const botStatus = await checkBotStatus();
-      if (!botStatus.active) {
-        return { success: false, error: 'Bot ist nicht erreichbar' };
-      }
-      
-      // API-Endpunkt für Test-Änderungserkennung aufrufen
-      await callBotAPI('/api/bot/test/update', 'POST');
-      
-      return { success: true };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Änderungserkennung konnte nicht getestet werden';
-      return { success: false, error: errorMessage };
-    }
-  }
-  
-  // POST /api/bot/clear-channel - Channel leeren
-  if (method === 'POST' && path === '/api/bot/clear-channel') {
-    try {
-      // Prüfen, ob der Bot läuft
-      const botStatus = await checkBotStatus();
-      if (!botStatus.active) {
-        return { success: false, error: 'Bot ist nicht erreichbar' };
-      }
-      
-      const body = await readBody(event) as { channelId: string };
-      const { channelId } = body;
-      
-      // API-Endpunkt für Channel-Leeren aufrufen
-      await callBotAPI('/api/bot/channel/clear', 'POST', { channelId });
-      
-      return { success: true };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Channel konnte nicht geleert werden';
-      return { success: false, error: errorMessage };
-    }
-  }
-  
-  interface LogEntry {
-    timestamp: string;
-    level: string;
-    message: string;
-    details?: string;
-  }
-  
-  // GET /api/bot/logs - Logs abrufen
-  if (method === 'GET' && path === '/api/bot/logs') {
-    try {
-      const query = getQuery(event);
-      const type = query.type as string || 'all';
-      
-      // Prüfen, ob Bot läuft und Logs darüber abrufen
-      const botStatus = await checkBotStatus();
-      
-      // Wenn Bot läuft, versuche echte Logs abzurufen
-      if (botStatus.active) {
-        try {
-          console.log('Bot is active, attempting to get logs from API');
-          const logsResponse = await callBotAPI(`/api/bot/logs?type=${type}`, 'GET') as unknown as { logs: LogEntry[] };
-          if (logsResponse && logsResponse.logs && logsResponse.logs.length > 0) {
-            console.log(`Successfully retrieved ${logsResponse.logs.length} logs from API`);
-            return { success: true, logs: logsResponse.logs };
-          } else {
-            console.log('API returned empty logs array, trying to read logs directly');
-          }
-        } catch (error) {
-          console.error('Error getting logs from API:', error instanceof Error ? error.message : 'Unknown error');
-        }
-        
-        // Bei leeren Logs oder API-Fehler versuche direkt die Log-Datei zu lesen
-        try {
-          console.log('Attempting to read logs directly from file');
-          const directLogs = await readLogFile(type);
-          if (directLogs.length > 0) {
-            console.log(`Successfully read ${directLogs.length} logs from file`);
-            return { 
-              success: true, 
-              logs: directLogs, 
-              note: 'Logs wurden direkt aus der Datei gelesen'
-            };
-          } else {
-            console.log('No logs found in log file');
-          }
-        } catch (fileError) {
-          console.error('Error reading logs from file:', fileError instanceof Error ? fileError.message : 'Unknown error');
-        }
-      } else {
-        // Wenn Bot nicht aktiv ist, versuche trotzdem die Log-Datei zu lesen
-        try {
-          console.log('Bot is not active, attempting to read logs directly from file');
-          const directLogs = await readLogFile(type);
-          if (directLogs.length > 0) {
-            console.log(`Successfully read ${directLogs.length} logs from file despite bot being inactive`);
-            return { 
-              success: true, 
-              logs: directLogs, 
-              note: 'Logs wurden direkt aus der Datei gelesen (Bot ist nicht aktiv)'
-            };
-          }
-        } catch (fileError) {
-          console.error('Error reading logs from file with inactive bot:', fileError instanceof Error ? fileError.message : 'Unknown error');
-        }
-      }
-      
-      // Fallback auf generierten Test-Log, wenn keine echten Logs gefunden wurden
-      console.log('Using generated test logs as fallback');
-      const currentDate = new Date();
-      const formattedDate = currentDate.toLocaleDateString('de-DE', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
+  try {
+    const authorization = headers.get('authorization') || '';
+    console.log('Authorization Header:', authorization);
+    
+    if (!authorization || !authorization.startsWith('Bearer ')) {
+      console.log('No Bearer token found');
+      throw createError({
+        statusCode: 401,
+        message: 'No Bearer token provided'
       });
-      const formattedTime = (hours: number, minutes: number) => {
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-      };
-      
-      const mockLogs: LogEntry[] = [
-        { 
-          timestamp: `${formattedDate} ${formattedTime(currentDate.getHours(), currentDate.getMinutes())}`, 
-          level: 'info', 
-          message: 'Keine echten Logs gefunden. Dies ist ein Test-Log.' 
-        },
-        { 
-          timestamp: `${formattedDate} ${formattedTime(currentDate.getHours(), currentDate.getMinutes()-5)}`, 
-          level: 'debug', 
-          message: 'Vertretungsplan wird abgerufen', 
-          details: 'URL: https://api.example.com/vertretungsplan' 
-        },
-        { 
-          timestamp: `${formattedDate} ${formattedTime(currentDate.getHours(), currentDate.getMinutes()-4)}`, 
-          level: 'info', 
-          message: 'Vertretungsplan erfolgreich aktualisiert' 
-        },
-        { 
-          timestamp: `${formattedDate} ${formattedTime(currentDate.getHours(), currentDate.getMinutes()-3)}`, 
-          level: 'debug', 
-          message: 'Prüfe auf Änderungen' 
-        },
-        { 
-          timestamp: `${formattedDate} ${formattedTime(currentDate.getHours(), currentDate.getMinutes()-2)}`, 
-          level: 'info', 
-          message: 'Keine Änderungen gefunden' 
-        },
-        { 
-          timestamp: `${formattedDate} ${formattedTime(currentDate.getHours(), currentDate.getMinutes()-1)}`, 
-          level: 'error', 
-          message: 'Fehler beim Abrufen des Vertretungsplans', 
-          details: 'API nicht erreichbar: Timeout' 
-        }
-      ];
-      
-      let filteredLogs = mockLogs;
-      if (type !== 'all') {
-        filteredLogs = mockLogs.filter(log => log.level === type);
-      }
-      
-      return { 
-        success: true, 
-        logs: filteredLogs, 
-        note: 'Keine echten Logs gefunden. Zeige Test-Log-Daten an.'
-      };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Logs konnten nicht geladen werden';
-      return { success: false, error: errorMessage };
     }
+
+    const token = authorization.split(' ')[1];
+    console.log('Token Length:', token.length);
+    console.log('Token Preview:', `${token.substring(0, 10)}...`);
+
+    const config = useRuntimeConfig();
+    console.log('Appwrite Config:', {
+      endpoint: config.public.appwriteEndpoint,
+      projectId: config.public.appwriteProjectId
+    });
+
+    const client = new Client()
+      .setEndpoint(config.public.appwriteEndpoint)
+      .setProject(config.public.appwriteProjectId)
+      .setJWT(token);
+
+    const account = new Account(client);
+    console.log('Attempting to verify token with Appwrite...');
+    
+    const user = await account.get();
+    console.log('Token verification successful');
+    console.log('User Info:', {
+      id: user.$id,
+      email: user.email,
+      name: user.name
+    });
+    
+    return user;
+  } catch (error) {
+    console.error('Auth Verification Error:', error);
+    throw createError({
+      statusCode: 401,
+      message: error instanceof Error ? error.message : 'Authentication failed'
+    });
+  } finally {
+    console.log('=== Auth Verification End ===\n');
   }
-  
-  // DELETE /api/bot/logs - Logs löschen
-  if (method === 'DELETE' && path === '/api/bot/logs') {
-    try {
-      // Prüfen, ob der Bot läuft
-      const botStatus = await checkBotStatus();
-      if (!botStatus.active) {
-        return { success: false, error: 'Bot ist nicht erreichbar' };
-      }
-      
-      // Bot-API für Log-Löschung aufrufen
-      try {
-        await callBotAPI('/api/bot/logs', 'DELETE');
-        return { success: true };
-      } catch {
-        return { success: false, error: 'Logs konnten nicht gelöscht werden' };
-      }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Logs konnten nicht gelöscht werden';
-      return { success: false, error: errorMessage };
-    }
-  }
-  
-  // POST /api/bot/log-level - Log-Level setzen
-  if (method === 'POST' && path === '/api/bot/log-level') {
-    try {
-      const body = await readBody(event) as { level: string };
-      const { level } = body;
-      
-      // Prüfen, ob der Bot läuft
-      const botStatus = await checkBotStatus();
-      if (!botStatus.active) {
-        return { success: false, error: 'Bot ist nicht erreichbar' };
-      }
-      
-      // Bot-API für Log-Level-Änderung aufrufen
-      try {
-        await callBotAPI('/api/bot/log-level', 'POST', { level });
-        return { success: true };
-      } catch {
-        return { success: false, error: 'Log-Level konnte nicht gesetzt werden' };
-      }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Log-Level konnte nicht gesetzt werden';
-      return { success: false, error: errorMessage };
-    }
-  }
-  
-  // GET /api/bot/activities - Aktivitäten abrufen
-  if (method === 'GET' && path === '/api/bot/activities') {
-    try {
-      // Prüfen, ob der Bot läuft
-      const botStatus = await checkBotStatus();
-      
-      // Beispiel-Aktivitäten zurückgeben, wenn keine vom Bot kommen
-      const defaultActivities = [
-        {
-          type: 'info',
-          message: 'Vertretungsplan geprüft',
-          timestamp: new Date().toLocaleDateString('de-DE', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        },
-        {
-          type: 'update',
-          message: 'Plan aktualisiert',
-          timestamp: new Date(Date.now() - 30*60000).toLocaleDateString('de-DE', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        }
-      ];
-      
-      if (botStatus.active) {
-        // Versuche Aktivitäten über die Bot-API abzurufen
-        try {
-          const activitiesResponse = await callBotAPI('/api/bot/activities', 'GET') as unknown as { activities: Array<{type: string; message: string; timestamp: string}> };
-          if (activitiesResponse && activitiesResponse.activities && activitiesResponse.activities.length > 0) {
-            return { success: true, activities: activitiesResponse.activities };
-          }
-        } catch (error) {
-          console.error('Fehler beim Abrufen der Aktivitäten:', error instanceof Error ? error.message : 'Unbekannter Fehler');
-        }
-      }
-      
-      // Fallback auf recentActivities aus dem Status oder Standard-Aktivitäten
-      return {
-        success: true,
-        activities: botStatus.recentActivities?.length > 0 
-          ? botStatus.recentActivities 
-          : defaultActivities
-      };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Aktivitäten konnten nicht geladen werden';
-      return { success: false, error: errorMessage, activities: [] };
-    }
+};
+
+// Create the event handler
+const botEventHandler = defineEventHandler(async (event: H3Event) => {
+  // Skip auth for OPTIONS requests (CORS preflight)
+  if (event.method === 'OPTIONS') {
+    return { success: true };
   }
 
-  // Unbekannter Endpunkt
-  return { success: false, error: 'Unbekannter API-Endpunkt' };
+  try {
+    // Verify auth and get user info
+    await verifyAuth(event);
+    const token = event.headers.get('authorization')?.split(' ')[1];
+
+    const endpoint = event.path.replace('/api/bot', '');
+    const method = event.method;
+    const body = event.method !== 'GET' ? await readBody(event) : undefined;
+
+    // Forward the request to the bot API with the user's token
+    const response = await callBotAPI(endpoint, method, body, token);
+    return response;
+  } catch (error: unknown) {
+    console.error('API Error:', error instanceof Error ? error.message : 'Unknown error');
+    throw createError({
+      statusCode: error instanceof Error && 'statusCode' in error ? (error.statusCode as number) : 500,
+      message: error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
 });
+
+// Add helper functions to the handler
+Object.assign(botEventHandler, {
+  getQuery,
+  stopBot,
+  startBot,
+  readSettings,
+  writeSettings,
+  readLogFile,
+  checkBotStatus,
+  callBotAPI
+});
+
+// Export the enhanced event handler
+export default botEventHandler;

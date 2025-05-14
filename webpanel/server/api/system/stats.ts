@@ -107,6 +107,8 @@ const callBotAPI = async (endpoint: string): Promise<any> => {
     const options = {
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.APPWRITE_API_KEY}`,
+        'Connection': 'close' // Verbindung schließen nach Antwort
       },
       timeout: 3000 // 3 Sekunden Timeout
     };

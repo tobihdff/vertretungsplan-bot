@@ -1,5 +1,5 @@
 <template>
-  <div class="container mx-auto px-4 py-8">
+  <div class="container mx-auto">
     <h1 class="text-2xl md:text-3xl font-bold mb-6 dark:text-white">Systemstatistiken</h1>
     
     <div v-if="initialLoading" class="flex justify-center items-center h-64">
@@ -151,14 +151,22 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, computed, onUnmounted, nextTick, shallowRef, onActivated, onDeactivated } from 'vue';
-import useToast from '../composables/useToast';
+<script setup lang="ts">
+import { ref, onMounted, computed, onUnmounted, nextTick, shallowRef, onActivated, onDeactivated } from 'vue'
+import useToast from '../composables/useToast'
+
+definePageMeta({
+  middleware: ['auth']
+})
+
+// Replace process.client with import.meta.client
+const isClient = import.meta.client
+
 // Chart.js korrekt importieren und erst auf dem Client initialisieren
 let Chart;
 // Dynamischer Import für bessere Client-Side-Kompatibilität
 const importChartJS = async () => {
-  if (process.client) {
+  if (isClient) {
     Chart = (await import('chart.js/auto')).default;
   }
 };
