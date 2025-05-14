@@ -7,11 +7,14 @@ Ein benutzerfreundlicher Discord-Bot, der automatisch Vertretungspläne für Sch
 ## ✨ Funktionen
 
 - 🖼️ Generiert und postet ein übersichtliches Bild des Vertretungsplans
+- 🌴 Erkennt automatisch Ferienzeiten und zeigt ein spezielles Ferienbild an
 - 🔄 Aktualisiert das Bild regelmäßig (standardmäßig alle 20 Minuten)
 - 🔍 Überprüft auf Änderungen im Vertretungsplan (standardmäßig alle 20 Minuten)
 - 📢 Sendet Benachrichtigungen bei Änderungen mit detaillierten Informationen
 - 🔔 Benachrichtigt Nutzer mit einer bestimmten Rolle bei Updates
 - 🧹 Hält den Discord-Channel aufgeräumt durch Löschen alter Nachrichten
+- 🛠️ Wartungsmodus für administrative Tätigkeiten
+- 👀 Bot-Status zeigt "Schaut Vertretungsplan" als Aktivität
 
 ## 🚀 Schnellstart-Anleitung
 
@@ -92,8 +95,39 @@ Der Bot unterstützt folgende Befehle:
 | `/test-plan` | Testet die Bildgenerierung des Vertretungsplans |
 | `/test-notification` | Testet die Benachrichtigungsfunktion |
 | `/test-update` | Testet die Erkennung von Änderungen |
+| `/test-holiday` | Testet die Anzeige des Ferienbildes |
 | `/clear-channel` | Löscht alle Nachrichten im Vertretungsplan-Kanal |
+| `/maintenance` | Schaltet den Wartungsmodus ein oder aus (erfordert Admin-Rechte) |
 
 ## 🔐 Berechtigungen
 
-Um festzulegen, wer die Befehle nutzen darf, trage in der `.env` Datei unter `AUTHORIZED_USERS` die Discord-IDs der berechtigten Nutzer ein (durch Kommas getrennt):
+Um festzulegen, wer die Befehle nutzen darf, trage in der `.env` Datei unter `AUTHORIZED_USERS` die Discord-IDs der berechtigten Nutzer ein (durch Kommas getrennt).
+
+## 🛡️ Wartungsmodus
+
+Der Bot verfügt über einen Wartungsmodus, der für administrative Tätigkeiten verwendet werden kann:
+
+- Aktiviere/deaktiviere mit dem Befehl `/maintenance` (erfordert Admin-Rechte)
+- Im Wartungsmodus werden keine automatischen Updates durchgeführt
+- Bot-Status ändert sich auf "Wartungsmodus" und "Nicht stören"
+- Alle automatischen Funktionen werden pausiert, bis der Wartungsmodus deaktiviert wird
+
+## 🔮 Geplante Features
+
+- 📚 Klassenbuch-Integration: Anzeige von Klassenbucheinträgen für bestimmte Tage
+- Weitere Verbesserungen der Benutzeroberfläche und Benachrichtigungen
+
+## 💻 Entwicklung
+
+### Debug-Modus
+
+Der Bot kann im Debug-Modus gestartet werden:
+
+```bash
+npm run dev
+```
+
+Im Debug-Modus sind folgende zusätzliche Features verfügbar:
+- Ausführliche Logging-Informationen
+- Test-Befehle werden freigeschaltet
+- Debug-Informationen werden in den Embeds angezeigt

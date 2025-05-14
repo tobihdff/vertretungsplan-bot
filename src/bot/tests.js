@@ -3,8 +3,9 @@ const { NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, DEBUG } = require('../config');
 const { getTargetDate, formatDate, parseGermanDate, formatReadableDate } = require('../utils/dateUtils');
 const { hasDataChanged, findChanges } = require('../utils/dataUtils');
 const { fetchData } = require('../services/apiService');
-const { createPlanImage } = require('../services/imageService');
+const { createPlanImage, createHolidayImage } = require('../services/imageService');
 const { sendTempPingNotification } = require('../tasks/updateTask');
+const { isHoliday, updateIfNeeded } = require('../services/holidayService');
 
 /**
  * Prüft, ob ein Benutzer autorisiert ist, Tests auszuführen
@@ -273,9 +274,64 @@ async function testNotification(interaction, client) {
     }
 }
 
+/**
+ * Testet den Ferienmodus
+ */
+async function testHolidayMode(interaction, date) {
+    try {
+        await interaction.deferReply({ ephemeral: true });
+        
+        // Zieldatum verwenden oder aktuelles, wenn keins angegeben
+        const targetDate = date ? parseGermanDate(date) : getTargetDate();
+        const dateParam = formatDate(targetDate);
+        
+        // Ferien-Update erzwingen
+        await updateIfNeeded();
+        
+        // Prüfen ob das Datum in den Ferien liegt
+        const holiday = isHoliday(targetDate);
+        
+        if (!holiday) {
+            return await interaction.editReply({
+                content: `❌ Am ${dateParam} sind keine Ferien.`,
+                ephemeral: true
+            });
+        }
+        
+        // Ferienbild generieren
+        const imageBuffer = await createHolidayImage(holiday, targetDate);
+        const attachment = new AttachmentBuilder(imageBuffer, { name: 'test-ferien.png' });
+        
+        // Erstelle ein Embed mit den Feriendetails
+        const testEmbed = new EmbedBuilder()
+            .setColor('#4a90e2')
+            .setTitle('🧪 Test des Ferienmodus')
+            .setDescription(`Datum: ${dateParam}`)
+            .addFields(
+                { name: 'Ferien gefunden', value: '✅ Ja' },
+                { name: 'Ferienname', value: holiday.name },
+                { name: 'Zeitraum', value: `${holiday.start} bis ${holiday.end}` }
+            )
+            .setTimestamp();
+            
+        await interaction.editReply({ 
+            embeds: [testEmbed],
+            files: [attachment],
+            ephemeral: true
+        });
+    } catch (error) {
+        await interaction.editReply({
+            content: `❌ **Test fehlgeschlagen**\nFehler: ${error.message}`,
+            ephemeral: true
+        });
+        console.error('Fehler beim Test des Ferienmodus:', error);
+    }
+}
+
 module.exports = {
     isAuthorized,
     testPlanGeneration,
     testUpdateDetection,
-    testNotification
+    testNotification,
+    testHolidayMode
 };

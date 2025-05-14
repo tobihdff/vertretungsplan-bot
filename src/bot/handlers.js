@@ -1,5 +1,5 @@
 const { registerCommands } = require('./commands');
-const { isAuthorized, testPlanGeneration, testUpdateDetection, testNotification } = require('./tests');
+const { isAuthorized, testPlanGeneration, testUpdateDetection, testNotification, testHolidayMode } = require('./tests');
 const { updatePlan, checkPlanChanges } = require('../tasks/updateTask');
 const { AUTHORIZED_USERS, INTERVALS, PLAN_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEBUG } = require('../config');
 const { updateBotStatus, startApiMonitoring, setInitialBotStatus, enableMaintenanceMode, disableMaintenanceMode, isMaintenanceModeActive } = require('../utils/statusUtils');
@@ -182,7 +182,7 @@ function setupHandlers(client) {
             const { commandName } = interaction;
             
             // Überprüfe zunächst, ob es sich um einen Test-Befehl handelt
-            const isTestCommand = ['test-plan', 'test-update', 'test-notification'].includes(commandName);
+            const isTestCommand = ['test-plan', 'test-update', 'test-notification', 'test-holiday'].includes(commandName);
             
             // Wenn es ein Test-Befehl ist und Debug-Modus deaktiviert ist
             if (isTestCommand && !DEBUG) {
@@ -220,6 +220,11 @@ function setupHandlers(client) {
                     // Defer mit ephemeral true bereits in testNotification
                     await interaction.deferReply({ ephemeral: true });
                     await testNotification(interaction, client);
+                    break;
+                    
+                case 'test-holiday':
+                    const holidayDate = interaction.options.getString('datum');
+                    await testHolidayMode(interaction, holidayDate);
                     break;
                     
                 case 'force-update':
