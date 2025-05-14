@@ -7,6 +7,7 @@ Ein benutzerfreundlicher Discord-Bot, der automatisch Vertretungspläne für Sch
 ## ✨ Funktionen
 
 - 🖼️ Generiert und postet ein übersichtliches Bild des Vertretungsplans
+- 🌴 Erkennt automatisch Ferienzeiten und zeigt ein spezielles Ferienbild an
 - 🔄 Aktualisiert das Bild regelmäßig (standardmäßig alle 20 Minuten)
 - 🔍 Überprüft auf Änderungen im Vertretungsplan (standardmäßig alle 20 Minuten)
 - 📢 Sendet Benachrichtigungen bei Änderungen mit detaillierten Informationen
@@ -94,6 +95,7 @@ Der Bot unterstützt folgende Befehle:
 | `/test-plan` | Testet die Bildgenerierung des Vertretungsplans |
 | `/test-notification` | Testet die Benachrichtigungsfunktion |
 | `/test-update` | Testet die Erkennung von Änderungen |
+| `/test-holiday` | Testet die Anzeige des Ferienbildes |
 | `/clear-channel` | Löscht alle Nachrichten im Vertretungsplan-Kanal |
 | `/maintenance` | Schaltet den Wartungsmodus ein oder aus (erfordert Admin-Rechte) |
 

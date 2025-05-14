@@ -3,9 +3,10 @@ const { PLAN_CHANNEL_ID, NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEBUG, 
 const { getTargetDate, formatDate, formatReadableDate } = require('../utils/dateUtils');
 const { hasDataChanged, findChanges } = require('../utils/dataUtils');
 const { fetchData } = require('../services/apiService');
-const { createPlanImage } = require('../services/imageService');
+const { createPlanImage, createHolidayImage } = require('../services/imageService');
 const { isMaintenanceModeActive } = require('../utils/statusUtils');
 const { debugLog } = require('../utils/debugUtils');
+const { updateIfNeeded, isHoliday } = require('../services/holidayService');
 const crypto = require('crypto');
 
 /**
@@ -298,49 +299,53 @@ class VertretungsplanManager {
   }
 
   /**
-   * Löscht ältere Vertretungsplan-Nachrichten im Channel
+   * Löscht alle Nachrichten im Channel
    */
   async cleanupOldMessages(channel) {
     try {
-      debugLog('Starte Bereinigung älterer Vertretungsplan-Nachrichten');
-      
-      // Hole die letzten 50 Nachrichten (wäre ausreichend für mehrere Wochen)
-      const messages = await channel.messages.fetch({ limit: 50 });
-      
-      // Alle aktuellen Nachrichten-IDs aus dem Cache holen
-      const currentMessageIds = Object.values(cache.messages);
-      debugLog(`Aktuelle Nachrichten-IDs im Cache: ${currentMessageIds.length}`);
-      
-      // Filtere Nachrichten, die vom Bot stammen und Vertretungspläne enthalten
-      // aber KEINE der aktuellen Nachrichten sind
-      const oldPlanMessages = messages.filter(msg => 
-        msg.author.id === channel.client.user.id && 
-        msg.content.includes('**Vertretungsplan für') &&
-        !currentMessageIds.includes(msg.id)
-      );
-      
-      // Nur Nachrichten anzeigen, die gelöscht werden
-      if (oldPlanMessages.size > 0) {
-        debugLog(`${oldPlanMessages.size} ältere Vertretungsplan-Nachrichten gefunden`);
+        debugLog('Starte Bereinigung aller Nachrichten im Channel');
         
-        // Lösche die Nachrichten einzeln, da sie möglicherweise älter als 14 Tage sind
-        for (const [id, message] of oldPlanMessages) {
-          try {
-            await message.delete();
-            debugLog(`Alte Nachricht gelöscht: ${id}`);
-          } catch (err) {
-            debugLog(`Fehler beim Löschen einer alten Nachricht: ${err.message}`);
-            // Wir ignorieren Fehler beim Löschen alter Nachrichten
-          }
-        }
+        // Nachrichten in Batches von 100 löschen (Discord-Limit)
+        let messages;
+        do {
+            try {
+                messages = await channel.messages.fetch({ limit: 100 });
+                if (messages.size > 0) {
+                    debugLog(`${messages.size} Nachrichten zum Löschen gefunden`);
+                    
+                    // Trenne Nachrichten die älter/jünger als 14 Tage sind
+                    const twoWeeksAgo = new Date();
+                    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+                    
+                    const recentMessages = messages.filter(msg => msg.createdAt > twoWeeksAgo);
+                    const oldMessages = messages.filter(msg => msg.createdAt <= twoWeeksAgo);
+                    
+                    // Lösche neuere Nachrichten in Bulk
+                    if (recentMessages.size > 0) {
+                        debugLog(`Lösche ${recentMessages.size} neuere Nachrichten via bulkDelete`);
+                        await channel.bulkDelete(recentMessages);
+                    }
+                    
+                    // Lösche ältere Nachrichten einzeln
+                    for (const [id, message] of oldMessages) {
+                        try {
+                            await message.delete();
+                            debugLog(`Alte Nachricht gelöscht: ${id}`);
+                        } catch (err) {
+                            debugLog(`Fehler beim Löschen einer alten Nachricht: ${err.message}`);
+                        }
+                    }
+                }
+            } catch (err) {
+                debugLog(`Fehler beim Löschen der Nachrichten: ${err.message}`);
+                break;
+            }
+        } while (messages?.size >= 100); // Weitermachen solange es noch Nachrichten gibt
         
-        console.log(`${oldPlanMessages.size} ältere Vertretungsplan-Nachrichten wurden gelöscht`);
-      } else {
-        debugLog('Keine älteren Vertretungsplan-Nachrichten zum Löschen gefunden');
-      }
+        console.log('Channel wurde erfolgreich bereinigt');
     } catch (err) {
-      console.error('Fehler beim Bereinigen älterer Nachrichten:', err);
-      debugLog(`Fehler bei der Bereinigung älterer Nachrichten: ${err.message}`);
+        console.error('Fehler beim Bereinigen des Channels:', err);
+        debugLog(`Fehler bei der Channel-Bereinigung: ${err.message}`);
     }
   }
 
@@ -399,20 +404,16 @@ class VertretungsplanManager {
     try {
       debugLog('Starte vollständige Aktualisierung des Vertretungsplans');
       
+      // Feriendaten aktualisieren
+      await updateIfNeeded();
+      
       // Nächsten Schultag ermitteln
       const targetDate = getTargetDate();
       const dateParam = formatDate(targetDate);
       debugLog(`Ermittelter Zieldatum für Planaktualisierung: ${dateParam}`);
       
-      // Daten abrufen mit Retry-Mechanismus
-      const data = await this.fetchDataWithRetry(dateParam);
-      
-      // Wenn keine Daten verfügbar
-      if (!data || data.length === 0) {
-        debugLog(`Keine Daten für ${dateParam} verfügbar - Überspringe Aktualisierung`);
-        console.log(`Keine Daten für ${dateParam} verfügbar - Überspringe Aktualisierung`);
-        return;
-      }
+      // Prüfen ob Ferien sind
+      const holiday = isHoliday(targetDate);
       
       // Plan-Channel holen
       const planChannel = this.client.channels.cache.get(PLAN_CHANNEL_ID);
@@ -422,22 +423,44 @@ class VertretungsplanManager {
         return;
       }
       
-      // Prüfen auf Änderungen und ggf. benachrichtigen
-      await this.checkPlanChanges();
+      let imageBuffer;
+      let data = null;
       
-      // Bild erstellen
-      debugLog('Erstelle Bild für Vertretungsplan');
-      const imageBuffer = await createPlanImage(data, targetDate);
+      // Je nach Ferien unterschiedliche Bilder erstellen
+      if (holiday) {
+        debugLog(`Ferienzeit erkannt: ${holiday.name}`);
+        imageBuffer = await createHolidayImage(holiday, targetDate);
+      } else {
+        // Normaler Ablauf für Schultage
+        data = await this.fetchDataWithRetry(dateParam);
+        
+        // Wenn keine Daten verfügbar
+        if (!data || data.length === 0) {
+          debugLog(`Keine Daten für ${dateParam} verfügbar - Überspringe Aktualisierung`);
+          console.log(`Keine Daten für ${dateParam} verfügbar - Überspringe Aktualisierung`);
+          return;
+        }
+        
+        // Prüfen auf Änderungen und ggf. benachrichtigen
+        if (!holiday) {
+          await this.checkPlanChanges();
+        }
+        
+        // Bild erstellen
+        debugLog('Erstelle Bild für Vertretungsplan');
+        imageBuffer = await createPlanImage(data, targetDate);
+      }
+      
       const attachment = new AttachmentBuilder(imageBuffer, { name: 'vertretungsplan.png' });
       
       // Buttons für die Rolle erstellen (falls konfiguriert)
       let components = [];
-      if (UPDATE_ROLE_ID) {
+      if (UPDATE_ROLE_ID && !holiday) {
         components.push(this.createRoleButtons());
       }
       
       // Neue Nachricht senden oder bestehende aktualisieren
-      await this.updateOrCreateMessage(planChannel, targetDate, dateParam, data, attachment, components);
+      await this.updateOrCreateMessage(planChannel, targetDate, dateParam, data, attachment, components, holiday);
       
       console.log(`Vertretungsplan aktualisiert für ${dateParam}: ${new Date().toLocaleString()}`);
     } catch (err) {
@@ -470,88 +493,76 @@ class VertretungsplanManager {
    * Aktualisiert eine bestehende Nachricht oder erstellt eine neue
    * @private
    */
-  async updateOrCreateMessage(planChannel, targetDate, dateParam, data, attachment, components) {
+  async updateOrCreateMessage(planChannel, targetDate, dateParam, data, attachment, components, holiday) {
     const targetDateStr = formatReadableDate(targetDate);
-    const messageContent = `**Vertretungsplan für ${targetDateStr}**`;
+    const messageContent = holiday 
+      ? `**Ferieninfo für ${targetDateStr}**`
+      : `**Vertretungsplan für ${targetDateStr}**`;
     let existingMessage = null;
     
-    // Versuche zuerst, die Nachricht für das aktuelle Datum zu finden
-    let lastMessageId = cache.messages[dateParam];
+    // Versuche die letzte bekannte Nachricht zu laden
+    const messageIds = Object.values(cache.messages);
     
-    // Falls keine Nachricht für das aktuelle Datum existiert, nehme die letzte bekannte Nachricht
-    if (!lastMessageId) {
-      // Finde die letzte bekannte Nachricht-ID im Cache
-      const messageIds = Object.values(cache.messages);
-      debugLog(`Suche nach bestehender Nachricht im Cache. Gefundene IDs: ${messageIds.length}`);
-      
-      if (messageIds.length > 0) {
-        // Nehme die letzte ID aus dem Array (jüngste Nachricht)
-        lastMessageId = messageIds[messageIds.length - 1];
-        debugLog(`Verwende bestehende Nachricht mit ID: ${lastMessageId} für neues Datum`);
-      }
+    if (messageIds.length > 0) {
+        try {
+            // Versuche die letzte bekannte Nachricht zu laden
+            const lastMessageId = messageIds[0];
+            debugLog(`Versuche letzte bekannte Nachricht zu laden (ID: ${lastMessageId})`);
+            existingMessage = await planChannel.messages.fetch(lastMessageId).catch(() => null);
+        } catch (err) {
+            debugLog(`Fehler beim Laden der letzten Nachricht: ${err.message}`);
+            existingMessage = null;
+        }
     }
     
-    // Versuche, die Nachricht zu laden
-    if (lastMessageId) {
-      try {
-        debugLog(`Versuche bestehende Nachricht mit ID: ${lastMessageId} zu laden`);
-        existingMessage = await planChannel.messages.fetch(lastMessageId).catch(() => null);
-      } catch (err) {
-        debugLog(`Fehler beim Laden der bestehenden Nachricht: ${err.message}`);
-        existingMessage = null;
-      }
-    }
-    
-    // Debug-Informationen vorbereiten, wenn im Debug-Modus
-    const debugEmbed = this.createDebugEmbed(dateParam, data);
+    // Debug-Informationen vorbereiten
+    const debugEmbed = !holiday ? this.createDebugEmbed(dateParam, data) : null;
     
     // Bestehende Nachricht aktualisieren oder neue erstellen
     if (existingMessage) {
-      debugLog('Bestehende Nachricht gefunden, aktualisiere den Anhang');
-      
-      const editOptions = {
-        content: messageContent,
-        files: [attachment],
-        components: components
-      };
-      
-      // Debug-Embed hinzufügen, falls im Debug-Modus
-      if (DEBUG && debugEmbed) {
-        editOptions.embeds = [debugEmbed];
-      } else if (existingMessage.embeds.length > 0) {
-        // Wenn vorher Embeds existierten, aber jetzt deaktiviert sind, leeres Array setzen
-        editOptions.embeds = [];
-      }
-      
-      await existingMessage.edit(editOptions);
-      
-      // Aktualisiere die Nachrichtenzuordnung im Cache für das neue Datum
-      cache.messages[dateParam] = existingMessage.id;
-      debugLog(`Nachricht erfolgreich aktualisiert (ID: ${existingMessage.id}) und für Datum ${dateParam} zugeordnet`);
+        debugLog(`Aktualisiere bestehende Nachricht für ${dateParam}`);
+        
+        const editOptions = {
+            content: messageContent,
+            files: [attachment],
+            components: components
+        };
+        
+        // Debug-Embed hinzufügen, falls im Debug-Modus
+        if (DEBUG && debugEmbed) {
+            editOptions.embeds = [debugEmbed];
+        } else if (existingMessage.embeds.length > 0) {
+            editOptions.embeds = [];
+        }
+        
+        await existingMessage.edit(editOptions);
+        
+        // Aktualisiere den Cache für das neue Datum
+        cache.messages = { [dateParam]: existingMessage.id };
+        
+        debugLog(`Nachricht aktualisiert (ID: ${existingMessage.id})`);
     } else {
-      debugLog('Keine bestehende Nachricht gefunden oder Fehler beim Laden, erstelle neue Nachricht');
-      
-      // Alte Nachrichten nur beim ersten Start bereinigen, nicht mehr bei jedem Datumswechsel
-      if (!Object.keys(cache.messages).length) {
+        debugLog('Keine existierende Nachricht gefunden, erstelle neue');
+        
+        // Lösche alle existierenden Nachrichten im Channel
         await this.cleanupOldMessages(planChannel);
-      }
-      
-      // Sende neue Nachricht mit oder ohne Debug-Embed
-      const sendOptions = {
-        content: messageContent,
-        files: [attachment],
-        components: components
-      };
-      
-      if (DEBUG && debugEmbed) {
-        sendOptions.embeds = [debugEmbed];
-      }
-      
-      const newMessage = await planChannel.send(sendOptions);
-      
-      // Neue Nachricht-ID speichern
-      cache.messages[dateParam] = newMessage.id;
-      debugLog(`Neue Nachricht erstellt (ID: ${newMessage.id}) für Datum ${dateParam}`);
+        
+        const sendOptions = {
+            content: messageContent,
+            files: [attachment],
+            components: components
+        };
+        
+        if (DEBUG && debugEmbed) {
+            sendOptions.embeds = [debugEmbed];
+        }
+        
+        const newMessage = await planChannel.send(sendOptions);
+        
+        // Speichere nur die neue Nachricht im Cache
+        cache.messages = { [dateParam]: newMessage.id };
+        
+        debugLog(`Neue Nachricht erstellt (ID: ${newMessage.id})`);
     }
   }
 }

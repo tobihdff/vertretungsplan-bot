@@ -62,6 +62,68 @@ class ImageService {
   }
 
   /**
+   * Erstellt ein Bild für Ferienzeiten
+   * @param {Object} holiday - Das Ferienobjekt
+   * @param {Date} targetDate - Das Zieldatum
+   * @returns {Buffer} Der Bild-Buffer
+   */
+  async createHolidayImage(holiday, targetDate) {
+    try {
+      const { width, marginX, marginY, headerHeight, footerHeight, cardRadius, fonts } = IMAGE_CONFIG;
+      
+      // Fixe Höhe für Ferienbild
+      const height = 400;
+      
+      // Canvas & Kontext
+      const canvas = createCanvas(width, height);
+      const ctx = canvas.getContext('2d');
+      
+      // Hintergrund
+      this.drawBackground(ctx, width, height);
+      
+      // Header wie beim normalen Plan
+      this.drawHeader(ctx, targetDate, marginX, marginY, width, fonts);
+      
+      // Ferieninfo in der Mitte
+      ctx.fillStyle = '#4a90e2'; // Blaue Farbe für Ferien
+      ctx.font = 'bold 32px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      
+      // Ferientext
+      const holidayName = holiday.name.split(' ').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+      ).join(' ');
+      
+      ctx.fillText('🌴 Ferienzeit! 🌴', width/2, height/2 - 40);
+      
+      ctx.font = '24px "Segoe UI", sans-serif';
+      ctx.fillText(holidayName, width/2, height/2 + 20);
+      
+      // Zeitraum
+      const formatDate = date => new Date(date).toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+      
+      ctx.font = '20px "Segoe UI", sans-serif';
+      ctx.fillText(
+        `${formatDate(holiday.start)} bis ${formatDate(holiday.end)}`,
+        width/2,
+        height/2 + 60
+      );
+      
+      debugLog('Ferienbild wurde generiert');
+      return canvas.toBuffer('image/png');
+      
+    } catch (error) {
+      debugLog(`Fehler bei der Ferienbild-Generierung: ${error.message}`);
+      console.error("Error during holiday image creation:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Zeichnet den Hintergrund
    * @private
    */
@@ -175,5 +237,6 @@ class ImageService {
 const imageService = new ImageService();
 
 module.exports = {
-  createPlanImage: (data, targetDate) => imageService.createPlanImage(data, targetDate)
+  createPlanImage: (data, targetDate) => imageService.createPlanImage(data, targetDate),
+  createHolidayImage: (holiday, targetDate) => imageService.createHolidayImage(holiday, targetDate)
 };

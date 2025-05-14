@@ -35,7 +35,15 @@ const commands = [
         
     new SlashCommandBuilder()
         .setName('maintenance')
-        .setDescription('Schaltet den Wartungsmodus ein oder aus')
+        .setDescription('Schaltet den Wartungsmodus ein oder aus'),
+
+    new SlashCommandBuilder()
+        .setName('test-holiday')
+        .setDescription('Testet die Anzeige des Ferienbildes')
+        .addStringOption(option => 
+            option.setName('datum')
+                .setDescription('Datum im Format DD.MM.YYYY')
+                .setRequired(false))
 ];
 
 /**
