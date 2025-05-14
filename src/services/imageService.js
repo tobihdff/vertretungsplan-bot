@@ -69,10 +69,11 @@ class ImageService {
    */
   async createHolidayImage(holiday, targetDate) {
     try {
-      const { width, marginX, marginY, headerHeight, footerHeight, cardRadius, fonts } = IMAGE_CONFIG;
+      const { width, marginX, marginY, cardHeight, cardGap, footerHeight, 
+              cardRadius, headerHeight, numRows, fonts, status } = IMAGE_CONFIG;
       
-      // Fixe Höhe für Ferienbild
-      const height = 400;
+      // Verwende die gleiche Höhe wie der Vertretungsplan
+      const height = marginY * 2 + headerHeight + (cardHeight + cardGap) * numRows + footerHeight;
       
       // Canvas & Kontext
       const canvas = createCanvas(width, height);
@@ -81,12 +82,9 @@ class ImageService {
       // Hintergrund
       this.drawBackground(ctx, width, height);
       
-      // Header wie beim normalen Plan
-      this.drawHeader(ctx, targetDate, marginX, marginY, width, fonts);
-      
       // Ferieninfo in der Mitte
       ctx.fillStyle = '#4a90e2'; // Blaue Farbe für Ferien
-      ctx.font = 'bold 32px "Segoe UI", sans-serif';
+      ctx.font = 'bold 48px "Segoe UI", sans-serif'; // Größer: von 32px auf 48px
       ctx.textAlign = 'center';
       
       // Ferientext
@@ -94,9 +92,9 @@ class ImageService {
         word.charAt(0).toUpperCase() + word.slice(1)
       ).join(' ');
       
-      ctx.fillText('🌴 Ferienzeit! 🌴', width/2, height/2 - 40);
+      ctx.fillText('Ferienzeit', width/2, height/2 - 60); // Angepasste Y-Position
       
-      ctx.font = '24px "Segoe UI", sans-serif';
+      ctx.font = '36px "Segoe UI", sans-serif'; // Größer: von 24px auf 36px
       ctx.fillText(holidayName, width/2, height/2 + 20);
       
       // Zeitraum
@@ -106,11 +104,11 @@ class ImageService {
         year: 'numeric'
       });
       
-      ctx.font = '20px "Segoe UI", sans-serif';
+      ctx.font = '28px "Segoe UI", sans-serif'; // Größer: von 20px auf 28px
       ctx.fillText(
         `${formatDate(holiday.start)} bis ${formatDate(holiday.end)}`,
         width/2,
-        height/2 + 60
+        height/2 + 80 // Angepasste Y-Position
       );
       
       debugLog('Ferienbild wurde generiert');

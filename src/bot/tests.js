@@ -5,7 +5,7 @@ const { hasDataChanged, findChanges } = require('../utils/dataUtils');
 const { fetchData } = require('../services/apiService');
 const { createPlanImage, createHolidayImage } = require('../services/imageService');
 const { sendTempPingNotification } = require('../tasks/updateTask');
-const { isHoliday, updateIfNeeded } = require('../utils/holidayUtils');
+const { isHoliday, updateIfNeeded } = require('../services/holidayService');
 
 /**
  * Prüft, ob ein Benutzer autorisiert ist, Tests auszuführen
