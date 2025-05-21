@@ -1,0 +1,82 @@
+[
+    {
+        "Stunde": 1,
+        "Lehrkraft": "Kirchhöfer",
+        "Fach": "Elektrotechnik / Informatik",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    },
+    {
+        "Stunde": 2,
+        "Lehrkraft": "Kirchhöfer",
+        "Fach": "Elektrotechnik / Informatik",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    },
+    {
+        "Stunde": 3,
+        "Lehrkraft": "Du Chesne",
+        "Fach": "Englisch",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    },
+    {
+        "Stunde": 4,
+        "Lehrkraft": "Du Chesne",
+        "Fach": "Englisch",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    },
+    {
+        "Stunde": 5,
+        "Lehrkraft": "Bollmann",
+        "Fach": "Elektrotechnik / Informatik",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    },
+    {
+        "Stunde": 6,
+        "Lehrkraft": "Bollmann",
+        "Fach": "Elektrotechnik / Informatik",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    },
+    {
+        "Stunde": 7,
+        "Lehrkraft": "Bollmann",
+        "Fach": "Elektrotechnik / Informatik",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    },
+    {
+        "Stunde": 8,
+        "Lehrkraft": "Bollmann",
+        "Fach": "Elektrotechnik / Informatik",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    }
+]

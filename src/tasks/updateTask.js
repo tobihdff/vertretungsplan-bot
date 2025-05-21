@@ -8,6 +8,8 @@ const { isMaintenanceModeActive } = require('../utils/statusUtils');
 const { debugLog } = require('../utils/debugUtils');
 const { updateIfNeeded, isHoliday } = require('../services/holidayService');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * VertretungsplanManager - Klasse für die Verwaltung des Vertretungsplans
@@ -132,7 +134,17 @@ class VertretungsplanManager {
       
       // Überprüfen, ob sich die Daten geändert haben
       debugLog('Prüfe auf Änderungen in den Daten');
-      const lastData = cache.data[dateParam];
+      let lastData = cache.data[dateParam];
+
+      if (!lastData) {
+        debugLog('Letzte Daten sind leer, vergleiche mit Standardwerten');
+        const dayString = targetDate.toLocaleDateString('en-US', { weekday: 'long' }).toLocaleLowerCase();
+        const lastDataPath = path.join(__dirname, `../data/timetable/${dayString}.json`);
+
+        const lastDataFile = fs.readFileSync(lastDataPath, 'utf8');
+        lastData = JSON.parse(lastDataFile);
+      }
+
       const dataChanged = hasDataChanged(lastData, data);
       
       // Wenn sich die Daten geändert haben und es vorherige Daten gibt
