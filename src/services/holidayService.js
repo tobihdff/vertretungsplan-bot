@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const { debugLog } = require('../utils/debugUtils');
 const { cache } = require('../config');
 
@@ -10,27 +12,47 @@ class HolidayService {
      * Holt die Feriendaten für das aktuelle Jahr
      */
     async fetchHolidays() {
-        try {
-            const currentYear = new Date().getFullYear();
-            debugLog(`Hole Feriendaten für ${currentYear}`);
-            
-            const response = await fetch(`${this.baseUrl}/${currentYear}`);
-            if (!response.ok) {
-                throw new Error(`Ferien-API Fehler: ${response.status} ${response.statusText}`);
+        const currentYear = new Date().getFullYear();
+
+        // Wenn die Daten bereits im Cache sind, gib sie zurück
+        if (cache.holidays && cache.lastHolidayUpdate) {
+            const lastUpdateYear = cache.lastHolidayUpdate.getFullYear();
+            if (lastUpdateYear === currentYear) {
+                debugLog(`Feriendaten für ${currentYear} bereits im Cache`);
+                return cache.holidays;
             }
-            
-            const holidays = await response.json();
-            debugLog(`${holidays.length} Ferieneinträge geladen`);
-            
-            // Speichere im Cache
-            cache.holidays = holidays;
-            cache.lastHolidayUpdate = new Date();
-            
-            return holidays;
-        } catch (err) {
-            console.error('Fehler beim Abrufen der Feriendaten:', err);
-            debugLog(`Fehler beim Abrufen der Feriendaten: ${err.message}`);
-            return null;
+        } else {
+            try {
+                debugLog(`Hole Feriendaten für ${currentYear} von der API`);
+                const response = await fetch(`${this.baseUrl}/${currentYear}`);
+                if (!response.ok) {
+                    throw new Error(`Ferien-API Fehler: ${response.status} ${response.statusText}`);
+                }
+                
+                const holidays = await response.json();
+                debugLog(`${holidays.length} Ferieneinträge geladen`);
+                
+                // Speichere im Cache
+                cache.holidays = holidays;
+                cache.lastHolidayUpdate = new Date();
+                
+                return holidays;
+            } catch (err) {
+                console.error('Fehler beim Abrufen der Feriendaten:', err);
+                debugLog(`Fehler beim Abrufen der Feriendaten: ${err.message}`);
+
+                const holidaysPath = path.join(__dirname, `../data/holidays/${currentYear}.json`);
+                const holidaysData = fs.readFileSync(holidaysPath, 'utf8');
+                const holidays = JSON.parse(holidaysData);
+                
+                debugLog(`Fallback: Lade Feriendaten von ${holidaysPath}`);
+                debugLog(`Fallback: ${holidays.length} Ferieneinträge geladen`);
+
+                // Speichere im Cache
+                cache.holidays = holidays;
+                cache.lastHolidayUpdate = new Date();
+                return holidays;
+            }
         }
     }
 

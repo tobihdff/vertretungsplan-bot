@@ -1,0 +1,82 @@
+[
+    {
+        "Stunde": 1,
+        "Lehrkraft": "Friedrichs",
+        "Fach": "Wirtschaft / Informatik",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    },
+    {
+        "Stunde": 2,
+        "Lehrkraft": "Friedrichs",
+        "Fach": "Wirtschaft / Informatik",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    },
+    {
+        "Stunde": 3,
+        "Lehrkraft": "Friedrichs",
+        "Fach": "Wirtschaft / Informatik",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    },
+    {
+        "Stunde": 4,
+        "Lehrkraft": "Friedrichs",
+        "Fach": "Wirtschaft / Informatik",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    },
+    {
+        "Stunde": 5,
+        "Lehrkraft": "Wollenberg",
+        "Fach": "Wirtschaft / Deutsch",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    },
+    {
+        "Stunde": 6,
+        "Lehrkraft": "Wollenberg",
+        "Fach": "Wirtschaft / Deutsch",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    },
+    {
+        "Stunde": 7,
+        "Lehrkraft": "Huch",
+        "Fach": "Informationstechnik / Informationsverarbeitung",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    },
+    {
+        "Stunde": 8,
+        "Lehrkraft": "Huch",
+        "Fach": "Informationstechnik / Informationsverarbeitung",
+        "Raum": "C 1.14",
+        "Zusatzinfo": "",
+        "entfall": false,
+        "vertretung": false,
+        "originalLehrkraft": null
+    }
+]
