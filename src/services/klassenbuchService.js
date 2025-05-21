@@ -102,7 +102,7 @@ class KlassenbuchService {
 
     createEmbed(dateParam, klassenbuchData) {
         console.log(dateParam);
-        const formattedDate = dateUtils.formatReadableDate(new Date(dateParam));
+        const formattedDate = dateUtils.formatReadableDate(new Date(dateParam)); // Better date parsing needed
         const currentTime = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
         debugLog(`Erstelle Embed für Klassenbucheinträge am ${formattedDate}`);
