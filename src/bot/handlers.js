@@ -5,15 +5,11 @@ const { AUTHORIZED_USERS, INTERVALS, PLAN_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEB
 const { updateBotStatus, startApiMonitoring, setInitialBotStatus, enableMaintenanceMode, disableMaintenanceMode, isMaintenanceModeActive } = require('../utils/statusUtils');
 const { debugLog } = require('../utils/debugUtils');
 
-/**
- * Löscht alle Nachrichten in einem Channel, wenn die Berechtigungen ausreichen
- */
 async function clearChannel(channel) {
     try {
         debugLog(`Versuche Nachrichten im Channel ${channel.name} (ID: ${channel.id}) zu löschen`);
         console.log(`Versuche Nachrichten im Channel ${channel.name} zu löschen...`);
         
-        // Überprüfe zuerst die Berechtigungen
         const permissions = channel.permissionsFor(channel.client.user);
         
         if (!permissions.has('ManageMessages')) {
@@ -23,18 +19,15 @@ async function clearChannel(channel) {
             return false;
         }
         
-        // Nachrichten laden und löschen
         let messages;
         let deleted = 0;
         
         do {
             try {
-                // Discord erlaubt nur das Löschen von maximal 100 Nachrichten auf einmal
                 messages = await channel.messages.fetch({ limit: 100 });
                 debugLog(`${messages.size} Nachrichten geladen`);
                 
                 if (messages.size > 0) {
-                    // Bulk Delete für Nachrichten, die nicht älter als 14 Tage sind
                     const recentMessages = messages.filter(msg => {
                         const twoWeeksAgo = new Date();
                         twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
@@ -43,12 +36,10 @@ async function clearChannel(channel) {
                     
                     if (recentMessages.size > 0) {
                         debugLog(`Lösche ${recentMessages.size} neuere Nachrichten`);
-                        await channel.bulkDelete(recentMessages, true);  // true = filterOld
+                        await channel.bulkDelete(recentMessages, true);
                         deleted += recentMessages.size;
                     }
-                    
-                    // Ältere Nachrichten können nicht via bulkDelete gelöscht werden
-                    // Wir überspringen sie, da wir sie nicht löschen können
+
                     const olderMessages = messages.filter(msg => {
                         const twoWeeksAgo = new Date();
                         twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
@@ -81,32 +72,20 @@ async function clearChannel(channel) {
     }
 }
 
-/**
- * Initialisiert Bot-Handler
- */
 function setupHandlers(client) {
-    // Handler für das Ready-Event
     client.once('ready', async () => {
         console.log(`Bot ist online als ${client.user.tag}`);
         debugLog(`Bot gestartet - Tag: ${client.user.tag}, ID: ${client.user.id}`);
         debugLog(`Debug-Modus: ${DEBUG ? 'AKTIV' : 'INAKTIV'}`);
         
-        // Registriere Slash-Commands
         await registerCommands(client);
         debugLog('Slash-Commands wurden registriert');
         
-        // Initialen Bot-Status setzen (vereinfacht)
         await setInitialBotStatus(client);
         debugLog('Initialer Bot-Status wurde gesetzt');
-        
-        // API-Monitoring deaktiviert
-        // const monitorApiStatus = startApiMonitoring(client, INTERVALS.API_RETRY_INTERVAL);
-        // debugLog(`API-Monitoring konfiguriert mit Intervall: ${INTERVALS.API_RETRY_INTERVAL}ms`);
-        
-        // Cache als verfügbar markieren
+
         cache.apiAvailable = true;
         
-        // Beim ersten Start alle Nachrichten im Plan-Channel löschen
         if (!cache.initialized) {
             debugLog('Erstinitialisierung - Versuche Nachrichten zu löschen');
             const planChannel = client.channels.cache.get(PLAN_CHANNEL_ID);
@@ -126,7 +105,6 @@ function setupHandlers(client) {
             }
         }
         
-        // Initialen Update durchführen, wenn kein Wartungsmodus aktiv ist
         if (!isMaintenanceModeActive()) {
             debugLog('Führe initialen Vertretungsplan-Update durch');
             await updatePlan(client);
@@ -139,9 +117,7 @@ function setupHandlers(client) {
         console.log(`Prüf-Intervall: ${INTERVALS.CHECK_INTERVAL / 60000} Minuten`);
         debugLog(`Konfigurations-Details: Update alle ${INTERVALS.UPDATE_INTERVAL / 60000}min, Prüfung alle ${INTERVALS.CHECK_INTERVAL / 60000}min`);
         
-        // Separate Intervalle für Vollaktualisierung, Änderungsprüfung
         setInterval(async () => {
-            // Überprüfe, ob Wartungsmodus aktiv ist
             if (!isMaintenanceModeActive()) {
                 await updatePlan(client);
             } else {
@@ -150,41 +126,22 @@ function setupHandlers(client) {
         }, INTERVALS.UPDATE_INTERVAL);
         
         setInterval(async () => {
-            // Überprüfe, ob Wartungsmodus aktiv ist
             if (!isMaintenanceModeActive()) {
                 await checkPlanChanges(client);
             } else {
                 debugLog('Wartungsmodus aktiv - überspringe geplante Änderungsprüfung');
             }
         }, INTERVALS.CHECK_INTERVAL);
-        
-        // Status-Prüfung deaktiviert
-        /*
-        setInterval(() => {
-            debugLog('Führe regelmäßige Status-Aktualisierung durch');
-            updateBotStatus(client).then(() => {
-                // Bei Fehlern das Monitoring starten
-                if (!cache.apiAvailable) {
-                    debugLog('API nicht erreichbar - Starte Monitoring');
-                    monitorApiStatus();
-                }
-            });
-        }, INTERVALS.CHECK_INTERVAL);
-        */
     });
     
-    // Handler für Interaktionen (Commands und Buttons)
     client.on('interactionCreate', async interaction => {
-        // Slash-Command Handler
         if (interaction.isCommand()) {
             debugLog(`Slash-Command empfangen: ${interaction.commandName} von ${interaction.user.tag} (${interaction.user.id})`);
             
             const { commandName } = interaction;
             
-            // Überprüfe zunächst, ob es sich um einen Test-Befehl handelt
             const isTestCommand = ['test-plan', 'test-update', 'test-notification', 'test-holiday'].includes(commandName);
             
-            // Wenn es ein Test-Befehl ist und Debug-Modus deaktiviert ist
             if (isTestCommand && !DEBUG) {
                 debugLog(`Test-Befehl ${commandName} wurde verweigert - Debug-Modus ist deaktiviert`);
                 return interaction.reply({ 
@@ -193,7 +150,6 @@ function setupHandlers(client) {
                 });
             }
             
-            // Prüfe Berechtigung für normale Befehle (Ausnahme maintenance & setup-role)
             if (!['maintenance', 'setup-role'].includes(interaction.commandName) && !isAuthorized(interaction.user.id, AUTHORIZED_USERS)) {
                 debugLog(`Benutzer ${interaction.user.tag} ist nicht berechtigt, den Befehl ${interaction.commandName} auszuführen`);
                 return interaction.reply({ 
@@ -204,20 +160,18 @@ function setupHandlers(client) {
             
             switch (commandName) {
                 case 'test-plan':
-                    // Defer mit ephemeral true bereits in testPlanGeneration
                     await interaction.deferReply({ ephemeral: true });
                     await testPlanGeneration(interaction);
                     break;
                     
                 case 'test-update':
                     const date = interaction.options.getString('datum');
-                    // Defer mit ephemeral true bereits in testUpdateDetection
+                    
                     await interaction.deferReply({ ephemeral: true });
                     await testUpdateDetection(interaction, date);
                     break;
                     
                 case 'test-notification':
-                    // Defer mit ephemeral true bereits in testNotification
                     await interaction.deferReply({ ephemeral: true });
                     await testNotification(interaction, client);
                     break;
@@ -228,7 +182,6 @@ function setupHandlers(client) {
                     break;
                     
                 case 'force-update':
-                    // Überprüfe ob Wartungsmodus aktiv ist
                     if (isMaintenanceModeActive()) {
                         await interaction.reply({
                             content: '⚠️ Vertretungsplan-Update nicht möglich: Der Bot befindet sich im Wartungsmodus.',
@@ -264,7 +217,6 @@ function setupHandlers(client) {
                     break;
                     
                 case 'setup-role':
-                    // Prüfe, ob Rolle konfiguriert ist
                     if (!UPDATE_ROLE_ID) {
                         return interaction.reply({
                             content: '❌ Die UPDATE_ROLE_ID ist nicht in der .env-Datei konfiguriert.',
@@ -275,13 +227,11 @@ function setupHandlers(client) {
                     await interaction.deferReply({ ephemeral: true });
                     
                     try {
-                        // Prüfe, ob Rolle existiert
                         let role = interaction.guild.roles.cache.get(UPDATE_ROLE_ID);
                         
                         if (role) {
                             await interaction.editReply(`✅ Die Rolle "${role.name}" (ID: ${role.id}) ist bereits eingerichtet.`);
                         } else {
-                            // Erstelle neue Rolle
                             role = await interaction.guild.roles.create({
                                 name: 'Vertretungsplan-Updates',
                                 color: '#FFA500',
@@ -297,7 +247,6 @@ function setupHandlers(client) {
                     break;
                     
                 case 'maintenance':
-                    // Administratorrechte prüfen
                     if (!interaction.member.permissions.has('Administrator')) {
                         debugLog(`Benutzer ${interaction.user.tag} hat keine Administrator-Rechte für den Wartungsmodus`);
                         return interaction.reply({ 
@@ -307,16 +256,13 @@ function setupHandlers(client) {
                     }
                     
                     try {
-                        // Prüfe aktuellen Zustand und wechsle entsprechend
                         await interaction.deferReply({ ephemeral: true });
                         
                         if (isMaintenanceModeActive()) {
-                            // Wenn aktiv, dann deaktivieren
                             await disableMaintenanceMode(client);
                             await interaction.editReply(`✅ Wartungsmodus deaktiviert! Der Bot nimmt seine normalen Operationen wieder auf.`);
                             console.log(`Wartungsmodus deaktiviert von ${interaction.user.tag} (${interaction.user.id})`);
                         } else {
-                            // Wenn nicht aktiv, dann aktivieren
                             await enableMaintenanceMode(client);
                             await interaction.editReply(`✅ Wartungsmodus aktiviert! Der Bot verarbeitet keine automatischen Updates mehr und hat seinen Status auf "Wartungsmodus" geändert.`);
                             console.log(`Wartungsmodus aktiviert von ${interaction.user.tag} (${interaction.user.id})`);
@@ -329,7 +275,6 @@ function setupHandlers(client) {
             }
         }
         
-        // Button-Handler für Rollensteuerung
         if (interaction.isButton()) {
             debugLog(`Button-Interaction empfangen: ${interaction.customId} von ${interaction.user.tag} (${interaction.user.id})`);
             
@@ -355,7 +300,6 @@ function setupHandlers(client) {
                 }
                 
                 if (customId === 'role_subscribe') {
-                    // Rolle hinzufügen
                     if (member.roles.cache.has(role.id)) {
                         await interaction.reply({
                             content: '✅ Du erhältst bereits Benachrichtigungen bei Änderungen!',
@@ -369,7 +313,6 @@ function setupHandlers(client) {
                         });
                     }
                 } else if (customId === 'role_unsubscribe') {
-                    // Rolle entfernen
                     if (!member.roles.cache.has(role.id)) {
                         await interaction.reply({
                             content: '✅ Du erhältst bereits keine Benachrichtigungen!',

@@ -8,13 +8,9 @@ class HolidayService {
         this.baseUrl = 'https://ferien-api.de/api/v1/holidays/NI';
     }
 
-    /**
-     * Holt die Feriendaten für das aktuelle Jahr
-     */
     async fetchHolidays() {
         const currentYear = new Date().getFullYear();
 
-        // Wenn die Daten bereits im Cache sind, gib sie zurück
         if (cache.holidays && cache.lastHolidayUpdate) {
             const lastUpdateYear = cache.lastHolidayUpdate.getFullYear();
             if (lastUpdateYear === currentYear) {
@@ -32,7 +28,6 @@ class HolidayService {
                 const holidays = await response.json();
                 debugLog(`${holidays.length} Ferieneinträge geladen`);
                 
-                // Speichere im Cache
                 cache.holidays = holidays;
                 cache.lastHolidayUpdate = new Date();
                 
@@ -44,11 +39,10 @@ class HolidayService {
                 const holidaysPath = path.join(__dirname, `../data/holidays/${currentYear}.json`);
                 const holidaysData = fs.readFileSync(holidaysPath, 'utf8');
                 const holidays = JSON.parse(holidaysData);
-                
+
                 debugLog(`Fallback: Lade Feriendaten von ${holidaysPath}`);
                 debugLog(`Fallback: ${holidays.length} Ferieneinträge geladen`);
 
-                // Speichere im Cache
                 cache.holidays = holidays;
                 cache.lastHolidayUpdate = new Date();
                 return holidays;
@@ -56,15 +50,10 @@ class HolidayService {
         }
     }
 
-    /**
-     * Prüft ob ein bestimmtes Datum in den Ferien liegt
-     * @param {Date} date - Das zu prüfende Datum
-     * @returns {Object|null} Ferienobjekt wenn Ferien sind, sonst null
-     */
     isHoliday(date) {
         if (!cache.holidays) return null;
         
-        const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+        const dateStr = date.toISOString().split('T')[0];
         
         return cache.holidays.find(holiday => {
             const start = new Date(holiday.start);
@@ -73,13 +62,9 @@ class HolidayService {
         });
     }
 
-    /**
-     * Aktualisiert die Feriendaten wenn nötig
-     */
     async updateIfNeeded() {
         const now = new Date();
         
-        // Wenn noch keine Daten geladen wurden oder der letzte Update älter als 24h ist
         if (!cache.holidays || !cache.lastHolidayUpdate || 
             (now - cache.lastHolidayUpdate) > 24 * 60 * 60 * 1000) {
             debugLog('Feriendaten müssen aktualisiert werden');
@@ -88,7 +73,6 @@ class HolidayService {
     }
 }
 
-// Singleton-Instanz erstellen
 const holidayService = new HolidayService();
 
 module.exports = {

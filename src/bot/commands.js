@@ -1,8 +1,4 @@
 const { SlashCommandBuilder } = require('discord.js');
-
-/**
- * Definiert die Slash-Befehle für den Bot
- */
 const commands = [
     new SlashCommandBuilder()
         .setName('test-plan')
@@ -46,9 +42,6 @@ const commands = [
                 .setRequired(false))
 ];
 
-/**
- * Registriert die Slash-Befehle beim Discord-API
- */
 async function registerCommands(client) {
     try {
         console.log('Registriere Slash-Commands...');
