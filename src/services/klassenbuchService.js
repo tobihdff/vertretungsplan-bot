@@ -58,7 +58,6 @@ class KlassenbuchService {
     formatClassEntries(entries) {
         entries.sort((a, b) => parseInt(a.Stunde) - parseInt(b.Stunde));
         
-        // Group entries by content
         const contentGroups = entries.reduce((acc, entry) => {
             const key = `${entry.Inhalte || ''}-${entry.Hausaufgaben || ''}`;
             if (!acc[key]) {
@@ -77,7 +76,6 @@ class KlassenbuchService {
         let hasHomework = false;
 
         for (const group of Object.values(contentGroups)) {
-            // Format the content
             if (group.content && group.content !== '-') {
                 if (!hasContent) {
                     content += `Im Unterricht gemacht:\n`;
@@ -90,12 +88,10 @@ class KlassenbuchService {
             }
         }
 
-        // Add blank line after content if there was any content
         if (hasContent) {
             content += '\n';
         }
         
-        // Format homework if it exists
         for (const group of Object.values(contentGroups)) {
             if (group.homework && group.homework !== '-') {
                 if (!hasHomework) {
@@ -125,13 +121,11 @@ class KlassenbuchService {
             timestamp: new Date()
         };
 
-        // Sort classes alphabetically
         const sortedClasses = Object.keys(groupedEntries).sort();
         
         for (const klasse of sortedClasses) {
             const entries = groupedEntries[klasse];
             
-            // Group entries by teacher's subject
             const subjectGroups = entries.reduce((acc, entry) => {
                 const teacherInfo = this.getTeacherInfo(entry.LK);
                 const subject = teacherInfo.subjects;
@@ -143,7 +137,6 @@ class KlassenbuchService {
                 return acc;
             }, {});
 
-            // Add each subject as a separate field
             for (const [subject, subjectEntries] of Object.entries(subjectGroups)) {
                 const subjectContent = this.formatClassEntries(subjectEntries);
                 embed.fields.push({
