@@ -15,6 +15,7 @@ Ein benutzerfreundlicher Discord-Bot, der automatisch Vertretungspläne für Sch
 - 🧹 Hält den Discord-Channel aufgeräumt durch Löschen alter Nachrichten
 - 🛠️ Wartungsmodus für administrative Tätigkeiten
 - 👀 Bot-Status zeigt "Schaut Vertretungsplan" als Aktivität
+- 📚 Klassenbuch-Integration: Anzeige von Klassenbucheinträgen für bestimmte Tage
 
 ## 🚀 Schnellstart-Anleitung
 
@@ -111,11 +112,6 @@ Der Bot verfügt über einen Wartungsmodus, der für administrative Tätigkeiten
 - Im Wartungsmodus werden keine automatischen Updates durchgeführt
 - Bot-Status ändert sich auf "Wartungsmodus" und "Nicht stören"
 - Alle automatischen Funktionen werden pausiert, bis der Wartungsmodus deaktiviert wird
-
-## 🔮 Geplante Features
-
-- 📚 Klassenbuch-Integration: Anzeige von Klassenbucheinträgen für bestimmte Tage
-- Weitere Verbesserungen der Benutzeroberfläche und Benachrichtigungen
 
 ## 💻 Entwicklung
 
