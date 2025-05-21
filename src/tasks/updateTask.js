@@ -2,7 +2,7 @@ const { AttachmentBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Button
 const { PLAN_CHANNEL_ID, NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEBUG, BASE_URL, GENERAL_CHANGE_THRESHOLD } = require('../config');
 const { getTargetDate, formatDate, formatReadableDate } = require('../utils/dateUtils');
 const { hasDataChanged, findChanges } = require('../utils/dataUtils');
-const { fetchData } = require('../services/apiService');
+const { fetchVertretungsplan } = require('../services/apiService');
 const { createPlanImage, createHolidayImage } = require('../services/imageService');
 const { isMaintenanceModeActive } = require('../utils/statusUtils');
 const { debugLog } = require('../utils/debugUtils');
@@ -45,13 +45,13 @@ class VertretungsplanManager {
     }
   }
 
-  async fetchDataWithRetry(dateParam) {
+  async fetchVertretungsplanWithRetry(dateParam) {
     let data = null;
     let retryCount = 0;
     
     while (retryCount <= this.maxRetries) {
       try {
-        data = await fetchData(dateParam);
+        data = await fetchVertretungsplan(dateParam);
         break;
       } catch (err) {
         retryCount++;
@@ -83,7 +83,7 @@ class VertretungsplanManager {
       const dateParam = formatDate(targetDate);
       debugLog(`Ermittelter Zieldatum für Änderungsprüfung: ${dateParam}`);
       
-      const data = await this.fetchDataWithRetry(dateParam);
+      const data = await this.fetchVertretungsplanWithRetry(dateParam);
       
       if (!data || data.length === 0) {
         debugLog(`Keine Daten für ${dateParam} verfügbar - Überspringe Aktualisierung`);
@@ -298,7 +298,7 @@ class VertretungsplanManager {
       .setTitle('🔍 Debug-Informationen')
       .setDescription('Rohdaten vom API-Aufruf:')
       .addFields(
-        { name: 'API URL', value: `\`${BASE_URL}?date=${dateParam}\`` },
+        { name: 'API URL', value: `\`${BASE_URL}/vertretungsplan?date=${dateParam}\`` },
         { name: 'Anzahl Einträge', value: `${data.length}` },
         { name: 'Zeitstempel', value: new Date().toISOString() }
       );
@@ -356,7 +356,7 @@ class VertretungsplanManager {
         debugLog(`Ferienzeit erkannt: ${holiday.name}`);
         imageBuffer = await createHolidayImage(holiday, targetDate);
       } else {
-        data = await this.fetchDataWithRetry(dateParam);
+        data = await this.fetchVertretungsplanWithRetry(dateParam);
         
         if (!data || data.length === 0) {
           debugLog(`Keine Daten für ${dateParam} verfügbar - Überspringe Aktualisierung`);

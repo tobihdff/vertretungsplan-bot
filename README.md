@@ -21,7 +21,7 @@ Ein benutzerfreundlicher Discord-Bot, der automatisch Vertretungspläne für Sch
 ### Voraussetzungen
 
 - Ein Discord-Konto und Server-Admin-Rechte
-- [Node.js](https://nodejs.org/) (Version 16 oder höher)
+- [Node.js](https://nodejs.org/) (Version 19 oder höher)
 - Ein Discord-Bot-Token (siehe unten)
 
 ### Schritt 1: Bot erstellen

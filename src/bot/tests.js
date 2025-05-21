@@ -2,7 +2,7 @@ const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const { NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, DEBUG } = require('../config');
 const { getTargetDate, formatDate, parseGermanDate, formatReadableDate } = require('../utils/dateUtils');
 const { hasDataChanged, findChanges } = require('../utils/dataUtils');
-const { fetchData } = require('../services/apiService');
+const { fetchVertretungsplan } = require('../services/apiService');
 const { createPlanImage, createHolidayImage } = require('../services/imageService');
 const { sendTempPingNotification } = require('../tasks/updateTask');
 const { isHoliday, updateIfNeeded } = require('../services/holidayService');
@@ -17,7 +17,7 @@ async function testPlanGeneration(interaction) {
         
         const targetDate = getTargetDate();
         const dateParam = formatDate(targetDate);
-        const data = await fetchData(dateParam);
+        const data = await fetchVertretungsplan(dateParam);
         
         const imageBuffer = await createPlanImage(data, targetDate);
         const attachment = new AttachmentBuilder(imageBuffer, { name: 'test-vertretungsplan.png' });
@@ -38,7 +38,7 @@ async function testUpdateDetection(interaction, date) {
         
         const targetDate = date ? parseGermanDate(date) : getTargetDate();
         const dateParam = formatDate(targetDate);
-        const currentData = await fetchData(dateParam);
+        const currentData = await fetchVertretungsplan(dateParam);
         const modifiedData = JSON.parse(JSON.stringify(currentData));
         
         if (modifiedData.length > 0) {
@@ -120,7 +120,7 @@ async function testNotification(interaction, client) {
         const dateParam = formatDate(targetDate);
         const targetDateStr = formatReadableDate(targetDate);
         
-        const currentData = await fetchData(dateParam);
+        const currentData = await fetchVertretungsplan(dateParam);
         
         if (!currentData || currentData.length === 0) {
             return await interaction.editReply('❌ **Test fehlgeschlagen**\nKeine Daten verfügbar für das Testdatum!');

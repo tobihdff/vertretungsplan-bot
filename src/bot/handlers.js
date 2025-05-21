@@ -4,6 +4,8 @@ const { updatePlan, checkPlanChanges } = require('../tasks/updateTask');
 const { AUTHORIZED_USERS, INTERVALS, PLAN_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEBUG } = require('../config');
 const { updateBotStatus, startApiMonitoring, setInitialBotStatus, enableMaintenanceMode, disableMaintenanceMode, isMaintenanceModeActive } = require('../utils/statusUtils');
 const { debugLog } = require('../utils/debugUtils');
+const { fetchKlassenbuch } = require('../services/apiService');
+const dateUtils = require('../utils/dateUtils');
 
 async function clearChannel(channel) {
     try {
@@ -271,6 +273,19 @@ function setupHandlers(client) {
                         console.error('Fehler beim Ändern des Wartungsmodus:', error);
                         await interaction.editReply('❌ Es ist ein Fehler beim Ändern des Wartungsmodus aufgetreten.');
                     }
+                    break;
+
+                case 'klassenbuch':
+                    await interaction.deferReply({ ephemeral: true });
+                    const dateParam = interaction.options.getString('datum') || dateUtils.getPreviousDate().toISOString().split('T')[0];
+                    const klassenbuchData = await fetchKlassenbuch(dateParam);
+
+                    if (klassenbuchData && klassenbuchData.length > 0) {
+                        await interaction.editReply(`✅ Klassenbuch-Daten für ${dateParam}:\n\`\`\`${JSON.stringify(klassenbuchData, null, 2)}\`\`\``);
+                    } else {
+                        await interaction.editReply('❌ Keine Daten gefunden oder Fehler beim Abrufen der Daten.');
+                    }
+
                     break;
             }
         }

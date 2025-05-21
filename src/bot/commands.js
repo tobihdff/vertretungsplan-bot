@@ -39,7 +39,15 @@ const commands = [
         .addStringOption(option => 
             option.setName('datum')
                 .setDescription('Datum im Format DD.MM.YYYY')
-                .setRequired(false))
+                .setRequired(false)),
+                
+    new SlashCommandBuilder()
+        .setName('klassenbuch')
+        .setDescription('Zeigt die Klassenbuch Einträge an')
+        .addStringOption(option => 
+            option.setName('datum')
+                .setDescription('Datum im Format DD.MM.YYYY')
+                .setRequired(false)),
 ];
 
 async function registerCommands(client) {
