@@ -2,6 +2,7 @@ const { fetchKlassenbuch } = require('./apiService');
 const dateUtils = require('../utils/dateUtils');
 const fs = require('fs');
 const path = require('path');
+const { debugLog } = require('../utils/debugUtils');
 
 class KlassenbuchService {
     constructor() {
@@ -38,21 +39,14 @@ class KlassenbuchService {
             if (!klassenbuchData || klassenbuchData.length === 0) {
                 return null;
             }
-            return this.groupEntriesByClass(klassenbuchData);
+
+            debugLog(`Klassenbuch-Daten für ${dateParam} abgerufen: ${klassenbuchData.length} Einträge`);
+
+            return klassenbuchData;
         } catch (error) {
             console.error('Error fetching Klassenbuch data:', error);
             throw error;
         }
-    }
-
-    groupEntriesByClass(entries) {
-        return entries.reduce((acc, entry) => {
-            if (!acc[entry.Klasse]) {
-                acc[entry.Klasse] = [];
-            }
-            acc[entry.Klasse].push(entry);
-            return acc;
-        }, {});
     }
 
     formatClassEntries(entries) {
@@ -106,9 +100,12 @@ class KlassenbuchService {
         return content;
     }
 
-    createEmbed(dateParam, groupedEntries) {
+    createEmbed(dateParam, klassenbuchData) {
+        console.log(dateParam);
         const formattedDate = dateUtils.formatReadableDate(new Date(dateParam));
         const currentTime = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+        debugLog(`Erstelle Embed für Klassenbucheinträge am ${formattedDate}`);
 
         const embed = {
             color: 0xFFA500,
@@ -121,30 +118,28 @@ class KlassenbuchService {
             timestamp: new Date()
         };
 
-        const sortedClasses = Object.keys(groupedEntries).sort();
-        
-        for (const klasse of sortedClasses) {
-            const entries = groupedEntries[klasse];
-            
-            const subjectGroups = entries.reduce((acc, entry) => {
-                const teacherInfo = this.getTeacherInfo(entry.LK);
-                const subject = teacherInfo.subjects;
-                
-                if (!acc[subject]) {
-                    acc[subject] = [];
-                }
-                acc[subject].push(entry);
-                return acc;
-            }, {});
+        const sortedClasses = Object.keys(klassenbuchData).sort();
 
-            for (const [subject, subjectEntries] of Object.entries(subjectGroups)) {
-                const subjectContent = this.formatClassEntries(subjectEntries);
-                embed.fields.push({
-                    name: `**${subject}**`,
-                    value: subjectContent,
-                    inline: false
-                });
+        debugLog(`Sortierte Klassen: ${sortedClasses.join(', ')}`);
+
+        const subjectGroups = klassenbuchData.reduce((acc, Stunde) => {
+            const teacherInfo = this.getTeacherInfo(Stunde.LK);
+            const subject = teacherInfo.subjects;
+               
+            if (!acc[subject]) {
+                acc[subject] = [];
             }
+            acc[subject].push(Stunde);
+            return acc;
+        }, {});
+
+        for (const [subject, subjectEntries] of Object.entries(subjectGroups)) {
+            const subjectContent = this.formatClassEntries(subjectEntries);
+            embed.fields.push({
+                name: `**${subject}**`,
+                value: subjectContent,
+                inline: false
+            });
         }
 
         return embed;

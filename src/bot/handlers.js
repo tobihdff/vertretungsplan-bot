@@ -280,14 +280,16 @@ function setupHandlers(client) {
                     await interaction.deferReply({ ephemeral: true });
                     try {
                         const dateParam = interaction.options.getString('datum') || dateUtils.getPreviousDate().toISOString().split('T')[0];
-                        const groupedEntries = await getKlassenbuchData(dateParam);
+                        let klassenbuchData = await getKlassenbuchData(dateParam);
 
-                        if (!groupedEntries) {
+                        debugLog(`Klassenbucheinträge für ${dateParam} abgerufen: ${klassenbuchData.length} Einträge`);
+
+                        if (!klassenbuchData) {
                             await interaction.editReply('❌ Keine Klassenbucheinträge für das angegebene Datum gefunden.');
                             return;
                         }
 
-                        const embed = createEmbed(dateParam, groupedEntries);
+                        const embed = createEmbed(dateParam, klassenbuchData);
                         await interaction.editReply({ embeds: [embed] });
 
                     } catch (error) {
