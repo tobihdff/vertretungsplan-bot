@@ -1,0 +1,117 @@
+{
+    "HUE": {
+        "Vorname": "Wolfgang",
+        "Nachname": "Hübsch",
+        "Fach": "Wirtschaft / Politik"
+    },
+    "BOL": {
+        "Vorname": "Klaus",
+        "Nachname": "Bollmann",
+        "Fach": "Elektrotechnik / Informatik"
+    },
+    "CHE": {
+        "Vorname": "Ines",
+        "Nachname": "Du Chesne",
+        "Fach": "Englisch"
+    },
+    "KIT": {
+        "Vorname": "Tobias",
+        "Nachname": "Kirchhöfer",
+        "Fach": "Elektrotechnik / Informatik"
+    },
+    "HUC": {
+        "Vorname": "Mirco",
+        "Nachname": "Huch",
+        "Fach": "Informationstechnik / Informationsverarbeitung"
+    },
+    "WOK": {
+        "Vorname": "Katja",
+        "Nachname": "Wollenberg",
+        "Fach": "Wirtschaft / Deutsch"
+    },
+    "FRJ": {
+        "Vorname": "Jerome",
+        "Nachname": "Friedrichs",
+        "Fach": "Wirtschaft / Informatik"
+    },
+    "WAR": {
+        "Vorname": "Eckhard",
+        "Nachname": "Warnken",
+        "Fach": "Geschäftsprozesse"
+    },
+    "OCH": {
+        "Vorname": "Christian",
+        "Nachname": "Oetjen",
+        "Fach": "Wirtschaft / Mathematik / Personalrat"
+    },
+    "OTB": {
+        "Vorname": "Torben",
+        "Nachname": "Oltmann",
+        "Fach": "Fahrzeugtechnik / Politik"
+    },
+    "OFT": {
+        "Vorname": "Friedhelm",
+        "Nachname": "Otten",
+        "Fach": "Fahrzeugtechnik / Politik"
+    },
+    "PDA": {
+        "Vorname": "Dag",
+        "Nachname": "Pechtel",
+        "Fach": "Informationstechnik / Informationsverarbeitung / Mathematik"
+    },
+    "PJO": {
+        "Vorname": "Johanna",
+        "Nachname": "Pfeiffer",
+        "Fach": "Wirtschaft / Mathematik / Personalrat Vorsitzende"
+    },
+    "PPL": {
+        "Vorname": "Ferdinand",
+        "Nachname": "Plönnigs",
+        "Fach": "Informationstechnik / Informationsverarbeitung / Mathematik"
+    },
+    "RSI": {
+        "Vorname": "Silke",
+        "Nachname": "Requardt",
+        "Fach": "Wirtschaft / Politik"
+    },
+    "RCS": {
+        "Vorname": "Claudia",
+        "Nachname": "Salomon",
+        "Fach": "Wirtschaft / Englisch"
+    },
+    "SMD": {
+        "Vorname": "Matthias",
+        "Nachname": "Scheffter",
+        "Fach": "Ernährung / Politik / Bildungsgangsgruppenleitung Bäcker"
+    },
+    "SRF": {
+        "Vorname": "Ralf",
+        "Nachname": "Schmidt",
+        "Fach": "Deutsch / Politik / Wirtschaft"
+    },
+    "SCH": {
+        "Vorname": "Christoph",
+        "Nachname": "Schröder",
+        "Fach": "Wirtschaft / Religion"
+    },
+    "SBE": {
+        "Vorname": "Bernd",
+        "Nachname": "Schulz",
+        "Fach": "Wirtschaft / Politik"
+    },
+    "SIG": {
+        "Vorname": "Inga",
+        "Nachname": "Seliger",
+        "Fach": "Spanisch / Deutsch / Englisch"
+    },
+    "SIA": {
+        "Vorname": "Iris",
+        "Nachname": "Stabenau",
+        "Fach": "Wirtschaft / Englisch / Gleichstellungsbeauftragte"
+    },
+    "STN": {
+        "Vorname": "Teresa",
+        "Nachname": "Stahmann",
+        "Fach": "Wirtschaft / Werte und Normen / Gruppe Internationalisierung"
+    }
+}

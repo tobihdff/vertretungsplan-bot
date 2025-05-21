@@ -6,6 +6,7 @@ const { updateBotStatus, startApiMonitoring, setInitialBotStatus, enableMaintena
 const { debugLog } = require('../utils/debugUtils');
 const { fetchKlassenbuch } = require('../services/apiService');
 const dateUtils = require('../utils/dateUtils');
+const { getKlassenbuchData, createEmbed, createEmbeds } = require('../services/klassenbuchService');
 
 async function clearChannel(channel) {
     try {
@@ -277,15 +278,22 @@ function setupHandlers(client) {
 
                 case 'klassenbuch':
                     await interaction.deferReply({ ephemeral: true });
-                    const dateParam = interaction.options.getString('datum') || dateUtils.getPreviousDate().toISOString().split('T')[0];
-                    const klassenbuchData = await fetchKlassenbuch(dateParam);
+                    try {
+                        const dateParam = interaction.options.getString('datum') || dateUtils.getPreviousDate().toISOString().split('T')[0];
+                        const groupedEntries = await getKlassenbuchData(dateParam);
 
-                    if (klassenbuchData && klassenbuchData.length > 0) {
-                        await interaction.editReply(`✅ Klassenbuch-Daten für ${dateParam}:\n\`\`\`${JSON.stringify(klassenbuchData, null, 2)}\`\`\``);
-                    } else {
-                        await interaction.editReply('❌ Keine Daten gefunden oder Fehler beim Abrufen der Daten.');
+                        if (!groupedEntries) {
+                            await interaction.editReply('❌ Keine Klassenbucheinträge für das angegebene Datum gefunden.');
+                            return;
+                        }
+
+                        const embed = createEmbed(dateParam, groupedEntries);
+                        await interaction.editReply({ embeds: [embed] });
+
+                    } catch (error) {
+                        console.error('Error in klassenbuch command:', error);
+                        await interaction.editReply('❌ Es ist ein Fehler beim Abrufen der Klassenbucheinträge aufgetreten.');
                     }
-
                     break;
             }
         }
