@@ -135,6 +135,14 @@ function setupHandlers(client) {
                 debugLog('Wartungsmodus aktiv - überspringe geplante Änderungsprüfung');
             }
         }, INTERVALS.CHECK_INTERVAL);
+
+        console.log('Sende Heartbeat an Status-API');
+        fetch(`https://status.tobias-hudaff.de/api/push/pOYMx1up2g?status=up&msg=OK&ping=${Math.round(client.ws.ping)}`).catch(err => log.error(err));
+
+        setInterval(function(){ 
+            console.log('Sende Heartbeat an Status-API');
+            fetch(`https://status.tobias-hudaff.de/api/push/pOYMx1up2g?status=up&msg=OK&ping=${Math.round(client.ws.ping)}`).catch(err => log.error(err));
+        }, 60000);
     });
     
     client.on('interactionCreate', async interaction => {
