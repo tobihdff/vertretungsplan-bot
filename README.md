@@ -15,13 +15,14 @@ Ein benutzerfreundlicher Discord-Bot, der automatisch Vertretungspläne für Sch
 - 🧹 Hält den Discord-Channel aufgeräumt durch Löschen alter Nachrichten
 - 🛠️ Wartungsmodus für administrative Tätigkeiten
 - 👀 Bot-Status zeigt "Schaut Vertretungsplan" als Aktivität
+- 📚 Klassenbuch-Integration: Anzeige von Klassenbucheinträgen für bestimmte Tage
 
 ## 🚀 Schnellstart-Anleitung
 
 ### Voraussetzungen
 
 - Ein Discord-Konto und Server-Admin-Rechte
-- [Node.js](https://nodejs.org/) (Version 16 oder höher)
+- [Node.js](https://nodejs.org/) (Version 19 oder höher)
 - Ein Discord-Bot-Token (siehe unten)
 
 ### Schritt 1: Bot erstellen
@@ -112,11 +113,6 @@ Der Bot verfügt über einen Wartungsmodus, der für administrative Tätigkeiten
 - Bot-Status ändert sich auf "Wartungsmodus" und "Nicht stören"
 - Alle automatischen Funktionen werden pausiert, bis der Wartungsmodus deaktiviert wird
 
-## 🔮 Geplante Features
-
-- 📚 Klassenbuch-Integration: Anzeige von Klassenbucheinträgen für bestimmte Tage
-- Weitere Verbesserungen der Benutzeroberfläche und Benachrichtigungen
-
 ## 💻 Entwicklung
 
 ### Debug-Modus
@@ -131,3 +127,28 @@ Im Debug-Modus sind folgende zusätzliche Features verfügbar:
 - Ausführliche Logging-Informationen
 - Test-Befehle werden freigeschaltet
 - Debug-Informationen werden in den Embeds angezeigt
+
+## TODO Liste
+
+- [x] Befehl implementieren, um Klassenbucheinträge eines bestimmten Datums anzuzeigen
+  - Neuen Discord-Command erstellen (z.B. `/klassenbuch`)
+  - Parameter für Datumsangabe hinzufügen
+  - API-Endpunkt für Klassenbucheinträge anbinden
+  - Daten formatieren und übersichtlich darstellen
+  - Berechtigungen für den Zugriff überprüfen
+
+- [ ] Unterscheidung nach Lernfeld in den Klassenbucheinträgen
+  - Lernfeld-Informationen in API integrieren
+  - Lernfeld in Datenmodell für Klassenbucheinträge aufnehmen
+  - Anzeige der Klassenbucheinträge nach Lernfeld ermöglichen
+
+- [ ] Klausurtermine in den Bot integrieren
+  - Neue Datenstruktur für Klausurtermine definieren
+  - API-Endpunkt für Klausurtermine anbinden
+  - Anzeige der Klausurtermine ermöglichen
+
+- [ ] Automatische Erinnerungen für Klausurtermine implementieren
+  - Scheduler für das Versenden von Erinnerungen einrichten
+  - Command für das Abrufen von Klausurterminen und Infomaterial erstellen
+  - Logik für das Senden von Erinnerungen und Infomaterial implementieren
+  - Logik für das Versenden von automatischen Erinnerungen implementieren

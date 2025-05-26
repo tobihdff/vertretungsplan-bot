@@ -2,31 +2,23 @@ const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const { NOTIFICATION_CHANNEL_ID, UPDATE_ROLE_ID, DEBUG } = require('../config');
 const { getTargetDate, formatDate, parseGermanDate, formatReadableDate } = require('../utils/dateUtils');
 const { hasDataChanged, findChanges } = require('../utils/dataUtils');
-const { fetchData } = require('../services/apiService');
+const { fetchVertretungsplan } = require('../services/apiService');
 const { createPlanImage, createHolidayImage } = require('../services/imageService');
 const { sendTempPingNotification } = require('../tasks/updateTask');
 const { isHoliday, updateIfNeeded } = require('../services/holidayService');
 
-/**
- * Prüft, ob ein Benutzer autorisiert ist, Tests auszuführen
- */
 function isAuthorized(userId, authorizedUsers) {
-    // Debug-Modus muss aktiviert sein und der Benutzer muss autorisiert sein
     return DEBUG && authorizedUsers.includes(userId);
 }
 
-/**
- * Testet die Bildgenerierung des Vertretungsplans
- */
 async function testPlanGeneration(interaction) {
     try {
         await interaction.deferReply();
         
         const targetDate = getTargetDate();
         const dateParam = formatDate(targetDate);
-        const data = await fetchData(dateParam);
+        const data = await fetchVertretungsplan(dateParam);
         
-        // Teste die Generierung des Bildes
         const imageBuffer = await createPlanImage(data, targetDate);
         const attachment = new AttachmentBuilder(imageBuffer, { name: 'test-vertretungsplan.png' });
         
@@ -40,30 +32,18 @@ async function testPlanGeneration(interaction) {
     }
 }
 
-/**
- * Testet die Erkennung von Änderungen
- */
 async function testUpdateDetection(interaction, date) {
     try {
         await interaction.deferReply();
         
-        // Datum verwenden oder aktuelles Zieldatum berechnen
         const targetDate = date ? parseGermanDate(date) : getTargetDate();
         const dateParam = formatDate(targetDate);
-        
-        // Lade aktuelle Daten
-        const currentData = await fetchData(dateParam);
-        
-        // Erstelle eine modifizierte Kopie der Daten
+        const currentData = await fetchVertretungsplan(dateParam);
         const modifiedData = JSON.parse(JSON.stringify(currentData));
         
-        // Wenn Daten vorhanden sind, ändere einen Eintrag
         if (modifiedData.length > 0) {
-            // Wähle zufälligen Eintrag
             const randomIndex = Math.floor(Math.random() * modifiedData.length);
             const entry = modifiedData[randomIndex];
-            
-            // Entscheide zufällig zwischen Vertretung und Entfall
             const changeType = Math.random() > 0.5 ? 'vertretung' : 'entfall';
             
             if (changeType === 'vertretung') {
@@ -76,7 +56,6 @@ async function testUpdateDetection(interaction, date) {
                 entry.entfall = true;
             }
         } else {
-            // Füge einen Testdateneintrag hinzu, wenn keine Daten vorhanden sind
             modifiedData.push({
                 Stunde: 1,
                 Fach: "Test",
@@ -89,11 +68,9 @@ async function testUpdateDetection(interaction, date) {
             });
         }
         
-        // Prüfe Änderungserkennung
         const hasChanged = hasDataChanged(currentData, modifiedData);
         const { newSubstitutions, newCancellations } = findChanges(currentData, modifiedData);
         
-        // Erstelle lesbare Strings für die Änderungen
         let substitutionText = 'Keine neuen Vertretungen';
         let cancellationText = 'Keine neuen Entfälle';
         
@@ -110,7 +87,6 @@ async function testUpdateDetection(interaction, date) {
             }).join('\n');
         }
         
-        // Ergebnisse im Embed anzeigen
         const testEmbed = new EmbedBuilder()
             .setColor(hasChanged ? '#00FF00' : '#FF0000')
             .setTitle('🧪 Test der Änderungserkennung')
@@ -131,9 +107,6 @@ async function testUpdateDetection(interaction, date) {
     }
 }
 
-/**
- * Testet die Benachrichtigungsfunktion mit einer simulierten Datenänderung
- */
 async function testNotification(interaction, client) {
     try {
         await interaction.deferReply();
@@ -143,22 +116,18 @@ async function testNotification(interaction, client) {
             return await interaction.editReply('❌ **Test fehlgeschlagen**\nBenachrichtigungs-Channel nicht gefunden!');
         }
         
-        // Aktuelles Datum und Daten holen
         const targetDate = getTargetDate();
         const dateParam = formatDate(targetDate);
         const targetDateStr = formatReadableDate(targetDate);
         
-        // Aktuelle Daten abrufen
-        const currentData = await fetchData(dateParam);
+        const currentData = await fetchVertretungsplan(dateParam);
         
         if (!currentData || currentData.length === 0) {
             return await interaction.editReply('❌ **Test fehlgeschlagen**\nKeine Daten verfügbar für das Testdatum!');
         }
         
-        // Modifizierte Daten erstellen
         const modifiedData = JSON.parse(JSON.stringify(currentData));
         
-        // Zufällige Änderungen vornehmen
         const numChanges = Math.min(2, modifiedData.length);
         const changesToMake = [];
         
@@ -166,12 +135,10 @@ async function testNotification(interaction, client) {
             const randomIndex = Math.floor(Math.random() * modifiedData.length);
             const entry = modifiedData[randomIndex];
             
-            // Stellen sicher, dass wir nicht dieselbe Stunde zweimal ändern
             if (changesToMake.some(change => change.Stunde === entry.Stunde)) {
                 continue;
             }
             
-            // Entscheide zufällig zwischen Vertretung und Entfall
             const changeType = Math.random() > 0.5 ? 'vertretung' : 'entfall';
             
             if (changeType === 'vertretung') {
@@ -187,10 +154,8 @@ async function testNotification(interaction, client) {
             changesToMake.push(entry);
         }
         
-        // Identifiziere die Änderungen
         const { newSubstitutions, newCancellations } = findChanges(cache.data[dateParam] || currentData, modifiedData);
         
-        // Texte für die Änderungen erstellen
         let substitutionText = '';
         let cancellationText = '';
         
@@ -207,20 +172,17 @@ async function testNotification(interaction, client) {
             }).join('\n');
         }
         
-        // Test-Embed exakt wie das echte erstellen, nur in anderer Farbe
         const updateEmbed = new EmbedBuilder()
-            .setColor('#4287f5') // Blau für Testnachrichten
+            .setColor('#4287f5')
             .setTitle('📝 Vertretungsplan aktualisiert [TEST]')
             .setDescription(`Der Vertretungsplan für **${targetDateStr}** wurde aktualisiert.`)
             .setTimestamp()
             .setFooter({ text: 'WITA24 Vertretungsplan-Bot [TEST]' });
         
-        // Standardfelder hinzufügen
         updateEmbed.addFields(
             { name: 'Stand', value: new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr' }
         );
         
-        // Änderungen als Felder hinzufügen
         if (substitutionText) {
             updateEmbed.addFields({ 
                 name: '🔄 Neue Vertretungen', 
@@ -242,10 +204,8 @@ async function testNotification(interaction, client) {
             });
         }
         
-        // Sende das Test-Embed
         await notificationChannel.send({ embeds: [updateEmbed] });
         
-        // Separate Ping-Nachricht senden, die nach 5 Sekunden gelöscht wird
         if (UPDATE_ROLE_ID) {
             await sendTempPingNotification(
                 notificationChannel, 
@@ -254,7 +214,6 @@ async function testNotification(interaction, client) {
             );
         }
         
-        // Detailierte Antwort im Test-Channel
         await interaction.editReply({
             content: '✅ **Test erfolgreich**',
             embeds: [
@@ -274,21 +233,15 @@ async function testNotification(interaction, client) {
     }
 }
 
-/**
- * Testet den Ferienmodus
- */
 async function testHolidayMode(interaction, date) {
     try {
         await interaction.deferReply({ ephemeral: true });
         
-        // Zieldatum verwenden oder aktuelles, wenn keins angegeben
         const targetDate = date ? parseGermanDate(date) : getTargetDate();
         const dateParam = formatDate(targetDate);
         
-        // Ferien-Update erzwingen
         await updateIfNeeded();
         
-        // Prüfen ob das Datum in den Ferien liegt
         const holiday = isHoliday(targetDate);
         
         if (!holiday) {
@@ -298,11 +251,9 @@ async function testHolidayMode(interaction, date) {
             });
         }
         
-        // Ferienbild generieren
         const imageBuffer = await createHolidayImage(holiday, targetDate);
         const attachment = new AttachmentBuilder(imageBuffer, { name: 'test-ferien.png' });
         
-        // Erstelle ein Embed mit den Feriendetails
         const testEmbed = new EmbedBuilder()
             .setColor('#4a90e2')
             .setTitle('🧪 Test des Ferienmodus')

@@ -1,8 +1,4 @@
 const { SlashCommandBuilder } = require('discord.js');
-
-/**
- * Definiert die Slash-Befehle für den Bot
- */
 const commands = [
     new SlashCommandBuilder()
         .setName('test-plan')
@@ -43,12 +39,17 @@ const commands = [
         .addStringOption(option => 
             option.setName('datum')
                 .setDescription('Datum im Format DD.MM.YYYY')
-                .setRequired(false))
+                .setRequired(false)),
+                
+    new SlashCommandBuilder()
+        .setName('klassenbuch')
+        .setDescription('Zeigt die Klassenbuch Einträge an')
+        .addStringOption(option => 
+            option.setName('datum')
+                .setDescription('Datum im Format DD.MM.YYYY')
+                .setRequired(false)),
 ];
 
-/**
- * Registriert die Slash-Befehle beim Discord-API
- */
 async function registerCommands(client) {
     try {
         console.log('Registriere Slash-Commands...');
