@@ -101,16 +101,14 @@ class KlassenbuchService {
     }
 
     createEmbed(dateParam, klassenbuchData) {
-        console.log(dateParam);
-        const formattedDate = dateUtils.formatReadableDate(new Date(dateParam));
         const currentTime = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-        debugLog(`Erstelle Embed für Klassenbucheinträge am ${formattedDate}`);
+        debugLog(`Erstelle Embed für Klassenbucheinträge am ${dateParam}`);
 
         const embed = {
             color: 0xFFA500,
             title: '📚 Klassenbucheinträge',
-            description: `**Datum:** ${formattedDate}\n**Stand:** ${currentTime} Uhr`,
+            description: `**Datum:** ${dateParam}\n**Stand:** ${currentTime} Uhr`,
             fields: [],
             footer: {
                 text: 'WITA24 Vertretungsplan-Bot'
