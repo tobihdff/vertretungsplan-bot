@@ -27,7 +27,7 @@ const commands = [
     new SlashCommandBuilder()
         .setName('setup-role')
         .setDescription('Erstellt eine Rolle für Vertretungsplan-Benachrichtigungen falls nötig')
-        .setDefaultMemberPermissions(0), // Administrator-Berechtigungen erforderlich
+        .setDefaultMemberPermissions(0),
         
     new SlashCommandBuilder()
         .setName('maintenance')

@@ -22,7 +22,7 @@ class KlassenbuchService {
 
     getTeacherInfo(teacherId) {
         const teacher = this.teacherData[teacherId];
-        if (!teacher) return { name: teacherId, subjects: [] };
+        if (!teacher) return { name: teacherId, subjects: teacherId };
         
         const fullName = `${teacher.Vorname} ${teacher.Nachname}`;
         const subjects = teacher.Fach;
@@ -101,16 +101,14 @@ class KlassenbuchService {
     }
 
     createEmbed(dateParam, klassenbuchData) {
-        console.log(dateParam);
-        const formattedDate = dateUtils.formatReadableDate(new Date(dateParam)); // Better date parsing needed
         const currentTime = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-        debugLog(`Erstelle Embed für Klassenbucheinträge am ${formattedDate}`);
+        debugLog(`Erstelle Embed für Klassenbucheinträge am ${dateParam}`);
 
         const embed = {
             color: 0xFFA500,
             title: '📚 Klassenbucheinträge',
-            description: `**Datum:** ${formattedDate}\n**Stand:** ${currentTime} Uhr`,
+            description: `**Datum:** ${dateParam}\n**Stand:** ${currentTime} Uhr`,
             fields: [],
             footer: {
                 text: 'WITA24 Vertretungsplan-Bot'
@@ -151,4 +149,4 @@ const klassenbuchService = new KlassenbuchService();
 module.exports = {
     getKlassenbuchData: (dateParam) => klassenbuchService.getKlassenbuchData(dateParam),
     createEmbed: (dateParam, groupedEntries) => klassenbuchService.createEmbed(dateParam, groupedEntries)
-}; 
+};

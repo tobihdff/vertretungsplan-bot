@@ -13,8 +13,6 @@ function isAuthorized(userId, authorizedUsers) {
 
 async function testPlanGeneration(interaction) {
     try {
-        await interaction.deferReply();
-        
         const targetDate = getTargetDate();
         const dateParam = formatDate(targetDate);
         const data = await fetchVertretungsplan(dateParam);

@@ -341,6 +341,7 @@ class VertretungsplanManager {
       debugLog(`Ermittelter Zieldatum für Planaktualisierung: ${dateParam}`);
       
       const holiday = isHoliday(targetDate);
+      console.log(holiday)
       
       const planChannel = this.client.channels.cache.get(PLAN_CHANNEL_ID);
       if (!planChannel) {
@@ -354,7 +355,7 @@ class VertretungsplanManager {
       
       if (holiday) {
         debugLog(`Ferienzeit erkannt: ${holiday.name}`);
-        imageBuffer = await createHolidayImage(holiday, targetDate);
+        imageBuffer = await createHolidayImage(holiday);
       } else {
         data = await this.fetchVertretungsplanWithRetry(dateParam);
         

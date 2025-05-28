@@ -4,69 +4,74 @@ const { debugLog } = require('../utils/debugUtils');
 const { cache } = require('../config');
 
 class HolidayService {
-    constructor() {
-        this.baseUrl = 'https://ferien-api.de/api/v1/holidays/NI';
-    }
-
     async fetchHolidays() {
         const currentYear = new Date().getFullYear();
 
-        if (cache.holidays && cache.lastHolidayUpdate) {
-            const lastUpdateYear = cache.lastHolidayUpdate.getFullYear();
-            if (lastUpdateYear === currentYear) {
-                debugLog(`Feriendaten für ${currentYear} bereits im Cache`);
-                return cache.holidays;
-            }
-        } else {
-            try {
-                debugLog(`Hole Feriendaten für ${currentYear} von der API`);
-                const response = await fetch(`${this.baseUrl}/${currentYear}`);
-                if (!response.ok) {
-                    throw new Error(`Ferien-API Fehler: ${response.status} ${response.statusText}`);
-                }
-                
-                const holidays = await response.json();
-                debugLog(`${holidays.length} Ferieneinträge geladen`);
-                
-                cache.holidays = holidays;
-                cache.lastHolidayUpdate = new Date();
-                
-                return holidays;
-            } catch (err) {
-                console.error('Fehler beim Abrufen der Feriendaten:', err);
-                debugLog(`Fehler beim Abrufen der Feriendaten: ${err.message}`);
+        if (cache.holidays) {
+            debugLog(`Feriendaten für ${currentYear} bereits im Cache`);
+            return cache.holidays;
+        }
+        
+        const holidaysPath = path.join(__dirname, `../data/holidays/${currentYear}.json`);
+        debugLog(`Lade Feriendaten aus: ${holidaysPath}`);
+        
+        try {
+            const holidaysData = fs.readFileSync(holidaysPath, 'utf8');
+            const holidays = JSON.parse(holidaysData);
 
-                const holidaysPath = path.join(__dirname, `../data/holidays/${currentYear}.json`);
-                const holidaysData = fs.readFileSync(holidaysPath, 'utf8');
-                const holidays = JSON.parse(holidaysData);
+            holidays.forEach(h => {
+                const start = new Date(h.start);
+                const end = new Date(h.end);
+                
+                h.start = start.toISOString();
+                h.end = end.toISOString();
+                
 
-                debugLog(`Fallback: Lade Feriendaten von ${holidaysPath}`);
-                debugLog(`Fallback: ${holidays.length} Ferieneinträge geladen`);
+                h.isSingleDay = start.toJSON().split("T")[0] === end.toJSON().split("T")[0];
+            });
 
-                cache.holidays = holidays;
-                cache.lastHolidayUpdate = new Date();
-                return holidays;
-            }
+            debugLog(`${holidays.length} Ferieneinträge geladen`);
+            holidays.forEach(h => debugLog(`Geladener Eintrag: ${h.name} (${h.start} - ${h.end}) ${h.isSingleDay ? '(Einzelner Tag)' : ''}`));
+
+            cache.holidays = holidays;
+            cache.lastHolidayUpdate = new Date();
+            return holidays;
+        } catch (err) {
+            console.error('Fehler beim Laden der Feriendaten:', err);
+            debugLog(`Fehler beim Laden der Feriendaten: ${err.message}`);
+            return null;
         }
     }
 
     isHoliday(date) {
         if (!cache.holidays) return null;
         
-        const dateStr = date.toISOString().split('T')[0];
+        const checkDate = new Date(date);
+        checkDate.setUTCHours(12, 0, 0, 0);
         
-        return cache.holidays.find(holiday => {
+        debugLog(`Prüfe Datum: ${checkDate.toISOString()}`);
+        
+        const holiday = cache.holidays.find(holiday => {
             const start = new Date(holiday.start);
             const end = new Date(holiday.end);
-            return date >= start && date <= end;
+            
+            const isInRange = checkDate >= start && checkDate <= end;
+            
+            debugLog(`Vergleiche mit ${holiday.isSingleDay ? 'Feiertag' : 'Ferien'}: ${holiday.name}`);
+            debugLog(`Start: ${start.toISOString()}`);
+            debugLog(`Prüfdatum: ${checkDate.toISOString()}`);
+            debugLog(`Ende: ${end.toISOString()}`);
+            debugLog(`${start.getTime()} <= ${checkDate.getTime()} <= ${end.getTime()} = ${isInRange}`);
+            
+            return isInRange;
         });
+
+        debugLog(holiday ? `Gefunden: ${holiday.name} (${holiday.isSingleDay ? 'Feiertag' : 'Ferien'})` : 'Kein freier Tag gefunden');
+        return holiday || false;
     }
 
     async updateIfNeeded() {
-        const now = new Date();
-        
-        if (!cache.holidays || !cache.lastHolidayUpdate || 
-            (now - cache.lastHolidayUpdate) > 24 * 60 * 60 * 1000) {
+        if (!cache.holidays) {
             debugLog('Feriendaten müssen aktualisiert werden');
             await this.fetchHolidays();
         }

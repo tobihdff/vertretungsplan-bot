@@ -4,6 +4,11 @@ const { formatReadableDate } = require('../utils/dateUtils');
 const { debugLog } = require('../utils/debugUtils');
 
 class ImageService {
+  constructor() {
+    this.width = 1050;
+    this.height = 878;
+  }
+
   async createPlanImage(data, targetDate) {
     try {
       debugLog(`Starte Bildgenerierung für Datum: ${formatReadableDate(targetDate)}`);
@@ -47,45 +52,44 @@ class ImageService {
     }
   }
 
-  async createHolidayImage(holiday, targetDate) {
+  async createHolidayImage(holiday) {
     try {
-      const { width, marginX, marginY, cardHeight, cardGap, footerHeight, 
-              cardRadius, headerHeight, numRows, fonts, status } = IMAGE_CONFIG;
-      
-      const height = marginY * 2 + headerHeight + (cardHeight + cardGap) * numRows + footerHeight;
-      
-      const canvas = createCanvas(width, height);
+      debugLog('Starte Generierung des Ferienbildes');
+      const canvas = createCanvas(this.width, this.height);
       const ctx = canvas.getContext('2d');
       
-      this.drawBackground(ctx, width, height);
-      
       ctx.fillStyle = '#4a90e2';
+      ctx.fillRect(0, 0, this.width, this.height);
+      
+      const icon = holiday.isSingleDay ? '📅' : '🏖️';
       ctx.font = 'bold 48px "Segoe UI", sans-serif';
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
-      
-      const holidayName = holiday.name.split(' ').map(word => 
-        word.charAt(0).toUpperCase() + word.slice(1)
-      ).join(' ');
-      
-      ctx.fillText('Ferienzeit', width/2, height/2 - 60);
+      ctx.fillText(icon, this.width/2, this.height/2 - 40);
       
       ctx.font = '36px "Segoe UI", sans-serif';
-      ctx.fillText(holidayName, width/2, height/2 + 20);
+      const holidayName = holiday.name.charAt(0).toUpperCase() + holiday.name.slice(1);
+      ctx.fillText(holidayName, this.width/2, this.height/2 + 20);
       
       const formatDate = date => new Date(date).toLocaleDateString('de-DE', {
+        weekday: holiday.isSingleDay ? 'long' : undefined,
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
       });
       
       ctx.font = '28px "Segoe UI", sans-serif';
-      ctx.fillText(
-        `${formatDate(holiday.start)} bis ${formatDate(holiday.end)}`,
-        width/2,
-        height/2 + 80
-      );
+      if (holiday.isSingleDay) {
+        ctx.fillText(formatDate(holiday.start), this.width/2, this.height/2 + 80);
+      } else {
+        ctx.fillText(
+          `${formatDate(holiday.start)} bis ${formatDate(holiday.end)}`,
+          this.width/2,
+          this.height/2 + 80
+        );
+      }
       
-      debugLog('Ferienbild wurde generiert');
+      debugLog('Ferienbild wurde erfolgreich generiert');
       return canvas.toBuffer('image/png');
       
     } catch (error) {
