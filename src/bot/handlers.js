@@ -2,11 +2,10 @@ const { registerCommands } = require('./commands');
 const { isAuthorized, testPlanGeneration, testUpdateDetection, testNotification, testHolidayMode } = require('./tests');
 const { updatePlan, checkPlanChanges } = require('../tasks/updateTask');
 const { AUTHORIZED_USERS, INTERVALS, PLAN_CHANNEL_ID, UPDATE_ROLE_ID, cache, DEBUG } = require('../config');
-const { updateBotStatus, startApiMonitoring, setInitialBotStatus, enableMaintenanceMode, disableMaintenanceMode, isMaintenanceModeActive } = require('../utils/statusUtils');
+const { setInitialBotStatus, enableMaintenanceMode, disableMaintenanceMode, isMaintenanceModeActive } = require('../utils/statusUtils');
 const { debugLog } = require('../utils/debugUtils');
-const { fetchKlassenbuch } = require('../services/apiService');
 const dateUtils = require('../utils/dateUtils');
-const { getKlassenbuchData, createEmbed, createEmbeds } = require('../services/klassenbuchService');
+const { getKlassenbuchData, createEmbed } = require('../services/klassenbuchService');
 
 async function clearChannel(channel) {
     try {

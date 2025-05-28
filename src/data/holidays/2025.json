@@ -32,19 +32,27 @@
     "slug": "pfingstferien-2025-NI"
   },
   {
-    "start": "2025-05-30T00:00Z",
-    "end": "2025-05-31T00:00Z",
+    "start": "2025-05-29T00:00Z",
+    "end": "2025-05-29T23:59Z",
     "year": 2025,
     "stateCode": "NI",
-    "name": "pfingstferien",
+    "name": "Christi Himmelfahrt",
+    "slug": "himmelfahrt-2025-NI"
+  },
+  {
+    "start": "2025-05-30T00:00Z",
+    "end": "2025-05-30T23:59Z",
+    "year": 2025,
+    "stateCode": "NI",
+    "name": "Pfingstferien",
     "slug": "pfingstferien-2025-NI"
   },
   {
     "start": "2025-06-10T00:00Z",
-    "end": "2025-06-11T00:00Z",
+    "end": "2025-06-10T23:59Z",
     "year": 2025,
     "stateCode": "NI",
-    "name": "pfingstferien",
+    "name": "Pfingstferien",
     "slug": "pfingstferien-2025-NI"
   },
   {
@@ -52,7 +60,7 @@
     "end": "2025-08-14T00:00Z",
     "year": 2025,
     "stateCode": "NI",
-    "name": "sommerferien",
+    "name": "Sommerferien",
     "slug": "sommerferien-2025-NI"
   },
   {
@@ -60,7 +68,7 @@
     "end": "2025-10-26T00:00Z",
     "year": 2025,
     "stateCode": "NI",
-    "name": "herbstferien",
+    "name": "Herbstferien",
     "slug": "herbstferien-2025-NI"
   },
   {
@@ -68,7 +76,7 @@
     "end": "2026-01-06T00:00Z",
     "year": 2025,
     "stateCode": "NI",
-    "name": "weihnachtsferien",
+    "name": "Weihnachtsferien",
     "slug": "weihnachtsferien-2025-NI"
   }
 ]

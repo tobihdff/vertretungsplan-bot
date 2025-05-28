@@ -22,7 +22,7 @@ class KlassenbuchService {
 
     getTeacherInfo(teacherId) {
         const teacher = this.teacherData[teacherId];
-        if (!teacher) return { name: teacherId, subjects: [] };
+        if (!teacher) return { name: teacherId, subjects: teacherId };
         
         const fullName = `${teacher.Vorname} ${teacher.Nachname}`;
         const subjects = teacher.Fach;
@@ -102,7 +102,7 @@ class KlassenbuchService {
 
     createEmbed(dateParam, klassenbuchData) {
         console.log(dateParam);
-        const formattedDate = dateUtils.formatReadableDate(new Date(dateParam)); // Better date parsing needed
+        const formattedDate = dateUtils.formatReadableDate(new Date(dateParam));
         const currentTime = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
         debugLog(`Erstelle Embed für Klassenbucheinträge am ${formattedDate}`);
@@ -151,4 +151,4 @@ const klassenbuchService = new KlassenbuchService();
 module.exports = {
     getKlassenbuchData: (dateParam) => klassenbuchService.getKlassenbuchData(dateParam),
     createEmbed: (dateParam, groupedEntries) => klassenbuchService.createEmbed(dateParam, groupedEntries)
-}; 
+};
